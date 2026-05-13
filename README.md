@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # V/J Sync
 
 Nền tảng giao tiếp công sở (workspace, chat theo kênh, task, nhắc nhở) cho môi trường Việt–Nhật, có tích hợp AI qua OpenAI API.
