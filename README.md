@@ -199,7 +199,6 @@ Client Socket.IO kết nối qua cùng origin khi dev (proxy). Đảm bảo back
 
 ## Giấy phép
 
-Thêm file `LICENSE` nếu repo công khai cần quy định rõ bản quyền.
+LICENSE
 =======
-# V-J-Sync
->>>>>>> 4b2444f81d78c01c07e48f8323cca33520ae9b64
+
