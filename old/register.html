@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đăng ký - V/J Sync</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .register-container {
+      background: white;
+      max-width: 460px;
+      width: 100%;
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      padding: 50px 40px;
+      text-align: center;
+    }
+    
+    .logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 30px;
+      font-size: 28px;
+      font-weight: 700;
+      color: #1e40af;
+    }
+    
+    .logo img {
+      width: 72px;
+      height: 72px;
+      border-radius: 18px;
+      box-shadow: 0 8px 25px rgba(30, 64, 175, 0.3);
+      background: white;
+      padding: 6px;
+    }
+    
+    h1 {
+      margin: 0 0 8px 0;
+      font-size: 28px;
+      color: #1e2937;
+    }
+    
+    p {
+      color: #64748b;
+      margin-bottom: 35px;
+    }
+    
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+    
+    .input-group {
+      margin-bottom: 18px;
+      text-align: left;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: #334155;
+    }
+    
+    input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      font-size: 16px;
+      transition: all 0.3s;
+    }
+    
+    input:focus {
+      border-color: #3b82f6;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+    
+    .full-width {
+      grid-column: span 2;
+    }
+    
+    .btn-register {
+      width: 100%;
+      padding: 16px;
+      background: #1e40af;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      margin: 25px 0 15px;
+      transition: all 0.3s;
+    }
+    
+    .btn-register:hover {
+      background: #1e3a8a;
+    }
+    
+    .switch-link {
+      color: #64748b;
+    }
+    
+    .switch-link a {
+      color: #3b82f6;
+      font-weight: 600;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="register-container">
+    <div class="logo">
+      <img src="vj-logo.png" alt="V/J Sync Logo">
+      <span>V/J Sync</span>
+    </div>
+    
+    <h1>Tạo tài khoản mới</h1>
+    <p>Tham gia V/J Sync để giao tiếp dễ dàng với sếp Nhật</p>
+    
+    <div class="form-grid">
+      <div class="input-group">
+        <label>Họ và tên</label>
+        <input type="text" placeholder="Nguyễn Văn A" required>
+      </div>
+      <div class="input-group">
+        <label>Tên công ty / Phòng ban</label>
+        <input type="text" placeholder="Công ty ABC" required>
+      </div>
+    </div>
+    
+    <div class="input-group full-width">
+      <label>Email công ty</label>
+      <input type="email" placeholder="ten@company.com" required>
+    </div>
+    
+    <div class="input-group full-width">
+      <label>Mật khẩu</label>
+      <input type="password" placeholder="Tạo mật khẩu mạnh" required>
+    </div>
+    
+    <div class="input-group full-width">
+      <label>Xác nhận mật khẩu</label>
+      <input type="password" placeholder="Nhập lại mật khẩu" required>
+    </div>
+    
+    <button class="btn-register">Đăng ký tài khoản</button>
+    
+    <div class="switch-link">
+      Đã có tài khoản? <a href="#" onclick="window.location.href='login.html'">Đăng nhập</a>
+    </div>
+  </div>
+
+</body>
+</html>

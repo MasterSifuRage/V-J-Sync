@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chi tiết Nhắc nhở - V/J Sync</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    :root { --primary: #1e40af; --text-main: #1e2937; --text-muted: #64748b; --border-color: #e2e8f0; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #f8fafc; min-height: 100vh; display: flex; }
+
+    .sidebar { width: 280px; background: white; box-shadow: 2px 0 20px rgba(0,0,0,0.08); padding: 24px 0; height: 100vh; position: fixed; z-index: 100; }
+    .logo-container { display: flex; align-items: center; gap: 12px; padding: 0 24px 32px; border-bottom: 1px solid var(--border-color); }
+    .logo-container img { width: 52px; height: 52px; border-radius: 14px; }
+    .logo-container span { font-size: 26px; font-weight: 700; color: var(--primary); }
+    .nav-menu { padding: 20px 16px; }
+    .nav-item { display: flex; align-items: center; gap: 14px; padding: 14px 20px; margin: 6px 8px; border-radius: 12px; color: #475569; text-decoration: none; font-weight: 500; transition: 0.3s; }
+    .nav-item:hover, .nav-item.active { background: #f1f5f9; color: var(--primary); }
+    .nav-item i { font-size: 20px; width: 24px; }
+
+    /* Bỏ max-width để dàn ra toàn bộ */
+    .main-content { margin-left: 280px; flex: 1; padding: 32px 40px; }
+    .breadcrumb { font-size: 14px; color: var(--text-muted); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .breadcrumb a { color: var(--primary); text-decoration: none; font-weight: 500; }
+    
+    .header-actions { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+    .title-area h1 { font-size: 28px; font-weight: 700; color: var(--text-main); margin-bottom: 8px; }
+    .status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: #dcfce7; color: #16a34a; border-radius: 8px; font-size: 13px; font-weight: 600; }
+    
+    /* Layout Grid 2 cột */
+    .layout-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 32px; align-items: start; }
+    
+    .card { background: white; border-radius: 16px; padding: 32px; border: 1px solid var(--border-color); margin-bottom: 24px; }
+    
+    .detail-item { margin-bottom: 24px; }
+    .detail-item:last-child { margin-bottom: 0; }
+    .detail-item label { display: block; font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 12px; }
+    
+    .msg-box { background: #f8fafc; padding: 20px; border-radius: 10px; border: 1px solid var(--border-color); font-size: 16px; line-height: 1.6; color: var(--text-main); }
+    .msg-translation { margin-top: 16px; padding-top: 16px; border-top: 1px dashed #cbd5e1; color: #1e40af; font-weight: 500; }
+
+    /* Right Panel Info */
+    .info-panel { background: white; border-radius: 16px; padding: 24px; border: 1px solid var(--border-color); }
+    .info-row { margin-bottom: 20px; display: flex; flex-direction: column; gap: 6px; }
+    .info-row:last-child { margin-bottom: 0; }
+    .info-label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
+    .info-value { font-size: 15px; color: var(--text-main); font-weight: 500; display: flex; align-items: center; gap: 8px; }
+
+    .btn-edit { background: white; border: 2px solid var(--border-color); padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; color: var(--text-main); transition: 0.2s;}
+    .btn-edit:hover { background: #f1f5f9; }
+    .btn-delete { width: 100%; padding: 12px; background: white; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; color: #dc2626; font-weight: 600; margin-top: 24px; transition: 0.2s; }
+    .btn-delete:hover { background: #fef2f2; border-color: #fca5a5; }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <div class="logo-container"><img src="vj-logo.png" alt="Logo"><span>V/J Sync</span></div>
+    <div class="nav-menu">
+      <a href="home.html" class="nav-item"><i class="fas fa-home"></i> Trang chủ</a>
+      <a href="chat.html" class="nav-item"><i class="fas fa-comments"></i> Chat</a>
+      <a href="task-list.html" class="nav-item"><i class="fas fa-tasks"></i> Công việc</a>
+      <a href="remind-list.html" class="nav-item active"><i class="fas fa-bell"></i> Nhắc nhở</a>
+      <a href="workspace-select.html" class="nav-item"><i class="fas fa-building"></i> Workspace</a>
+      <a href="settings.html" class="nav-item"><i class="fas fa-cog"></i> Cài đặt</a>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="breadcrumb"><a href="remind-list.html">Nhắc nhở</a> <i class="fas fa-chevron-right" style="font-size: 10px;"></i> <span>Chi tiết</span></div>
+    
+    <div class="header-actions">
+      <div class="title-area">
+        <h1>Chuẩn bị họp Daily Scrum</h1>
+        <div class="status"><i class="fas fa-circle" style="font-size: 8px;"></i> Đang hoạt động</div>
+      </div>
+      <button class="btn-edit"><i class="fas fa-edit"></i> Chỉnh sửa nhắc nhở</button>
+    </div>
+
+    <div class="layout-grid">
+      <div class="card">
+        <div class="detail-item">
+          <label>Nội dung tin nhắn sẽ gửi</label>
+          <div class="msg-box">
+            Mọi người chuẩn bị cho buổi họp Daily Scrum lúc 10:00 nhé. Hãy cập nhật tiến độ công việc của mình.
+            <div class="msg-translation">
+              <i class="fas fa-language"></i> (Bản dịch đính kèm): 皆さん、10:00からのデイリースクラムの準備をお願いします。進捗状況を更新してください。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-panel">
+        <div class="info-row">
+          <span class="info-label">Thời gian kích hoạt</span>
+          <div class="info-value" style="color: var(--primary); font-size: 18px; font-weight: 700;">09:45</div>
+          <div style="font-size: 13px; color: var(--text-muted);">Giờ Việt Nam (ICT)</div>
+        </div>
+        
+        <div class="info-row" style="margin-top: 16px;">
+          <span class="info-label">Tần suất</span>
+          <div class="info-value"><i class="fas fa-sync-alt" style="color:var(--text-muted);"></i> Hàng ngày (T2 - T6)</div>
+        </div>
+        
+        <div class="info-row">
+          <span class="info-label">Nơi nhận</span>
+          <div class="info-value"><i class="fas fa-hashtag" style="color:var(--text-muted);"></i> Kênh: jp-vn-bridge</div>
+        </div>
+        
+        <div class="info-row">
+          <span class="info-label">Người tạo</span>
+          <div class="info-value">Thành Long (Bạn)</div>
+        </div>
+
+        <button class="btn-delete"><i class="fas fa-trash-alt"></i> Xóa lời nhắc</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

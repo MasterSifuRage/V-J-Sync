@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Danh sách Nhắc nhở - V/J Sync</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    :root { --primary: #1e40af; --primary-dark: #1e3a8a; --text-main: #1e2937; --text-muted: #64748b; --border-color: #e2e8f0; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #f8fafc; min-height: 100vh; display: flex; }
+
+    /* --- SIDEBAR --- */
+    .sidebar { width: 280px; background: white; box-shadow: 2px 0 20px rgba(0,0,0,0.08); padding: 24px 0; height: 100vh; position: fixed; z-index: 100; }
+    .logo-container { display: flex; align-items: center; gap: 12px; padding: 0 24px 32px; border-bottom: 1px solid var(--border-color); }
+    .logo-container img { width: 52px; height: 52px; border-radius: 14px; }
+    .logo-container span { font-size: 26px; font-weight: 700; color: var(--primary); }
+    .nav-menu { padding: 20px 16px; }
+    .nav-item { display: flex; align-items: center; gap: 14px; padding: 14px 20px; margin: 6px 8px; border-radius: 12px; color: #475569; text-decoration: none; font-weight: 500; transition: 0.3s; }
+    .nav-item:hover, .nav-item.active { background: #f1f5f9; color: var(--primary); }
+    .nav-item i { font-size: 20px; width: 24px; }
+
+    /* --- MAIN CONTENT --- */
+    .main-content { margin-left: 280px; flex: 1; padding: 32px 40px; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+    .header h1 { font-size: 28px; font-weight: 700; color: var(--text-main); }
+    .btn-create { background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.3s; }
+    .btn-create:hover { background: var(--primary-dark); }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 24px; border-bottom: 2px solid var(--border-color); margin-bottom: 24px; }
+    .tab { padding: 12px 0; font-weight: 600; color: var(--text-muted); cursor: pointer; position: relative; }
+    .tab.active { color: var(--primary); }
+    .tab.active::after { content: ''; position: absolute; bottom: -2px; left: 0; width: 100%; height: 2px; background: var(--primary); }
+
+    /* Remind Cards */
+    .remind-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 20px; }
+    .remind-card { background: white; border-radius: 16px; padding: 24px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px rgba(0,0,0,0.02); display: flex; gap: 20px; transition: 0.2s; cursor: pointer; }
+    .remind-card:hover { border-color: var(--primary); transform: translateY(-2px); }
+    
+    .time-block { text-align: center; min-width: 80px; border-right: 1px dashed var(--border-color); padding-right: 20px; }
+    .time-main { font-size: 24px; font-weight: 700; color: var(--primary); }
+    .time-sub { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-top: 4px; }
+    
+    .remind-info { flex: 1; }
+    .remind-title { font-size: 16px; font-weight: 600; color: var(--text-main); margin-bottom: 8px; }
+    .remind-meta { font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
+    
+    .target-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #f1f5f9; border-radius: 8px; font-size: 12px; font-weight: 600; color: #475569; }
+
+    /* Switch */
+    .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .4s; border-radius: 24px; }
+    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: #10b981; }
+    input:checked + .slider:before { transform: translateX(20px); }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="logo-container"><img src="vj-logo.png" alt="Logo"><span>V/J Sync</span></div>
+    <div class="nav-menu">
+      <a href="home.html" class="nav-item"><i class="fas fa-home"></i> Trang chủ</a>
+      <a href="chat.html" class="nav-item"><i class="fas fa-comments"></i> Chat</a>
+      <a href="task-list.html" class="nav-item"><i class="fas fa-tasks"></i> Công việc</a>
+      <a href="remind-list.html" class="nav-item active"><i class="fas fa-bell"></i> Nhắc nhở</a>
+      <a href="workspace-select.html" class="nav-item"><i class="fas fa-building"></i> Workspace</a>
+      <a href="settings.html" class="nav-item"><i class="fas fa-cog"></i> Cài đặt</a>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="header">
+      <h1>Quản lý Nhắc nhở</h1>
+      <button class="btn-create" onclick="window.location.href='remind-create.html'"><i class="fas fa-plus"></i> Tạo nhắc nhở</button>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active">Sắp tới & Lặp lại</div>
+      <div class="tab">Đã hoàn thành</div>
+    </div>
+
+    <div class="remind-grid">
+      <div class="remind-card" onclick="window.location.href='remind-detail.html'">
+        <div class="time-block">
+          <div class="time-main">09:45</div>
+          <div class="time-sub">Hàng ngày</div>
+        </div>
+        <div class="remind-info">
+          <div class="remind-title">Chuẩn bị họp Daily Scrum</div>
+          <div class="remind-meta">
+            <span><i class="fas fa-globe-asia"></i> Giờ VN (ICT)</span>
+            <span><i class="fas fa-sync-alt"></i> T2 - T6</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="target-badge"><i class="fas fa-hashtag"></i> jp-vn-bridge</div>
+            <label class="switch" onclick="event.stopPropagation();"><input type="checkbox" checked><span class="slider"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="remind-card" onclick="window.location.href='remind-detail.html'">
+        <div class="time-block">
+          <div class="time-main">17:00</div>
+          <div class="time-sub">Hôm nay</div>
+        </div>
+        <div class="remind-info">
+          <div class="remind-title">Gửi báo cáo tiến độ (Tiếng Nhật)</div>
+          <div class="remind-meta">
+            <span style="color: #dc2626; font-weight: 600;"><i class="fas fa-globe-asia"></i> Giờ Nhật (JST)</span>
+            <span><i class="far fa-calendar"></i> Chỉ 1 lần</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="target-badge"><div style="width:16px;height:16px;background:#eab308;border-radius:50%;font-size:8px;color:white;display:flex;align-items:center;justify-content:center;">TS</div> Tanaka Sato</div>
+            <label class="switch" onclick="event.stopPropagation();"><input type="checkbox" checked><span class="slider"></span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

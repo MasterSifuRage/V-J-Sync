@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chi tiết Công Việc - V/J Sync</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    :root {
+      --primary: #1e40af; --primary-dark: #1e3a8a;
+      --text-main: #1e2937; --text-muted: #64748b; --border-color: #e2e8f0;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #f8fafc; min-height: 100vh; display: flex; }
+
+    /* --- SIDEBAR BẢN GỐC --- */
+    .sidebar { width: 280px; background: white; box-shadow: 2px 0 20px rgba(0,0,0,0.08); padding: 24px 0; height: 100vh; position: fixed; overflow-y: auto; z-index: 100; }
+    .logo-container { display: flex; align-items: center; gap: 12px; padding: 0 24px 32px; border-bottom: 1px solid var(--border-color); }
+    .logo-container img { width: 52px; height: 52px; border-radius: 14px; }
+    .logo-container span { font-size: 26px; font-weight: 700; color: var(--primary); }
+    .nav-menu { padding: 20px 16px; }
+    .nav-item { display: flex; align-items: center; gap: 14px; padding: 14px 20px; margin: 6px 8px; border-radius: 12px; color: #475569; text-decoration: none; font-weight: 500; transition: 0.3s; }
+    .nav-item:hover, .nav-item.active { background: #f1f5f9; color: var(--primary); }
+    .nav-item i { font-size: 20px; width: 24px; }
+
+    /* --- MAIN CONTENT --- */
+    .main-content { margin-left: 280px; flex: 1; padding: 32px 40px; }
+    
+    .breadcrumb { font-size: 14px; color: var(--text-muted); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .breadcrumb a { color: var(--primary); text-decoration: none; font-weight: 500; }
+    
+    .task-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+    .task-title { font-size: 24px; font-weight: 700; color: var(--text-main); margin-bottom: 8px; }
+    .task-id { color: var(--text-muted); font-size: 14px; font-weight: 500; }
+    
+    .status-badge { background: #bfdbfe; color: #1e40af; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+    
+    .layout-grid { display: grid; grid-template-columns: 2.5fr 1fr; gap: 24px; align-items: start; }
+    
+    /* Left Panel: Content & Comments */
+    .card { background: white; border-radius: 16px; padding: 28px; box-shadow: 0 4px 20px rgba(0,0,0,0.02); border: 1px solid var(--border-color); margin-bottom: 24px; }
+    
+    .section-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+    
+    .description-content { font-size: 15px; color: #334155; line-height: 1.6; }
+    .jp-translation { margin-top: 16px; padding: 16px; background: #f8fafc; border-left: 3px solid #10b981; border-radius: 0 8px 8px 0; }
+    .jp-translation .label { font-size: 12px; font-weight: 600; color: #10b981; margin-bottom: 8px; text-transform: uppercase; }
+
+    /* Bình luận */
+    .comment-list { display: flex; flex-direction: column; gap: 20px; }
+    .comment-item { display: flex; gap: 16px; }
+    .avatar { width: 40px; height: 40px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; flex-shrink: 0; }
+    .comment-body { flex: 1; background: #f8fafc; padding: 16px; border-radius: 0 12px 12px 12px; border: 1px solid var(--border-color); }
+    .comment-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+    .comment-author { font-weight: 600; font-size: 14px; color: var(--text-main); }
+    .comment-time { font-size: 12px; color: var(--text-muted); }
+    .comment-text { font-size: 14px; color: #334155; line-height: 1.5; }
+
+    .comment-input { margin-top: 24px; display: flex; gap: 16px; }
+    .comment-input textarea { flex: 1; border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; font-family: inherit; font-size: 14px; resize: vertical; min-height: 60px; outline: none; }
+    .btn-send { background: var(--primary); color: white; border: none; padding: 0 20px; border-radius: 10px; font-weight: 600; cursor: pointer; }
+
+    /* Right Panel: Info */
+    .info-panel { background: white; border-radius: 16px; padding: 24px; border: 1px solid var(--border-color); }
+    .info-row { margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px; }
+    .info-label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
+    .info-value { font-size: 14px; color: var(--text-main); font-weight: 500; display: flex; align-items: center; gap: 8px; }
+    
+    .tag { font-size: 12px; padding: 4px 8px; border-radius: 6px; background: #fee2e2; color: #dc2626; font-weight: 600; display: inline-block; }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="logo-container"><img src="vj-logo.png" alt="Logo"><span>V/J Sync</span></div>
+    <div class="nav-menu">
+      <a href="home.html" class="nav-item"><i class="fas fa-home"></i> Trang chủ</a>
+      <a href="chat.html" class="nav-item"><i class="fas fa-comments"></i> Chat</a>
+      <a href="task-list.html" class="nav-item active"><i class="fas fa-tasks"></i> Công việc</a>
+      <a href="remind-list.html" class="nav-item"><i class="fas fa-bell"></i> Nhắc nhở</a>
+      <a href="workspace-select.html" class="nav-item"><i class="fas fa-building"></i> Workspace</a>
+      <a href="settings.html" class="nav-item"><i class="fas fa-cog"></i> Cài đặt</a>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="breadcrumb">
+      <a href="task-list.html">Công việc</a> <i class="fas fa-chevron-right" style="font-size: 10px;"></i> <span>Chi tiết</span>
+    </div>
+
+    <div class="task-header">
+      <div>
+        <div class="task-id">TASK-1042</div>
+        <h1 class="task-title">Lỗi không tự động dịch tin nhắn trên ứng dụng iOS</h1>
+      </div>
+      <div class="status-badge"><i class="fas fa-sync-alt"></i> Đang xử lý</div>
+    </div>
+
+    <div class="layout-grid">
+      <div>
+        <div class="card">
+          <div class="section-title"><i class="fas fa-align-left"></i> Mô tả chi tiết</div>
+          <div class="description-content">
+            <p><strong>Vấn đề:</strong> Người dùng báo cáo rằng khi mở app trên iPhone (iOS 17), các tin nhắn tiếng Nhật không tự động hiển thị phần dịch sang tiếng Việt bên dưới, dù đã bật cấu hình trong Settings.</p>
+            <p><strong>Các bước tái hiện:</strong></p>
+            <ul>
+              <li>Đăng nhập trên thiết bị iOS.</li>
+              <li>Vào kênh chat `jp-vn-bridge`.</li>
+              <li>Nhận tin nhắn tiếng Nhật mới -> Không có thẻ block màu xanh lá cây hiện ra.</li>
+            </ul>
+          </div>
+          
+          <div class="jp-translation">
+            <div class="label"><i class="fas fa-language"></i> Bản dịch tự động (Tiếng Nhật)</div>
+            <p><strong>問題：</strong> iPhone (iOS 17) でアプリを開いた際、設定でオンになっているにもかかわらず、日本語のメッセージの下にベトナム語の翻訳が自動的に表示されないという報告があります。</p>
+            <p><strong>再現手順：</strong></p>
+            <ul>
+              <li>iOSデバイスでログインする。</li>
+              <li>`jp-vn-bridge` チャンネルに入る。</li>
+              <li>新しい日本語のメッセージを受信する -> 緑色の翻訳ブロックが表示されない。</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title"><i class="fas fa-comments"></i> Trao đổi & Cập nhật (2)</div>
+          
+          <div class="comment-list">
+            <div class="comment-item">
+              <div class="avatar" style="background: #eab308;">TS</div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="comment-author">Tanaka Sato</span>
+                  <span class="comment-time">Hôm qua lúc 15:30</span>
+                </div>
+                <div class="comment-text">Long, tiến độ fix lỗi này sao rồi? Ngày mai chúng ta có buổi review với khách hàng rồi.</div>
+                <div style="margin-top: 8px; font-size: 13px; color: #10b981; font-weight: 500;">
+                  <i class="fas fa-language"></i> [Gốc]: ロンさん、このバグの修正進捗はどうですか？明日はクライアントとのレビューがあります。
+                </div>
+              </div>
+            </div>
+
+            <div class="comment-item">
+              <div class="avatar" style="background: #1e40af;">TL</div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="comment-author">Thành Long (Bạn)</span>
+                  <span class="comment-time">1 giờ trước</span>
+                </div>
+                <div class="comment-text">Em đã tìm ra nguyên nhân do lỗi gọi API từ phía Client iOS. Đang tiến hành fix và sẽ push code lên nhánh hotfix trong chiều nay.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="comment-input">
+            <div class="avatar" style="background: #1e40af;">TL</div>
+            <textarea placeholder="Nhập bình luận hoặc cập nhật tiến độ... (Sẽ tự động dịch cho người Nhật)"></textarea>
+            <button class="btn-send"><i class="fas fa-paper-plane"></i></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-panel">
+        <div class="info-row">
+          <span class="info-label">Người phụ trách</span>
+          <div class="info-value">
+            <div class="avatar" style="width: 24px; height: 24px; background: #1e40af; font-size: 10px;">TL</div>
+            Thành Long
+          </div>
+        </div>
+
+        <div class="info-row">
+          <span class="info-label">Người giao việc (Reporter)</span>
+          <div class="info-value">
+            <div class="avatar" style="width: 24px; height: 24px; background: #eab308; font-size: 10px;">TS</div>
+            Tanaka Sato
+          </div>
+        </div>
+
+        <div class="info-row">
+          <span class="info-label">Hạn chót</span>
+          <div class="info-value" style="color: #dc2626;"><i class="far fa-calendar-alt"></i> Hôm nay</div>
+        </div>
+
+        <div class="info-row">
+          <span class="info-label">Nhãn (Tags)</span>
+          <div><span class="tag">Bug iOS</span> <span class="tag" style="background: #fef3c7; color: #d97706;">Khẩn cấp</span></div>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;">
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <button style="width: 100%; padding: 10px; background: white; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-weight: 500;"><i class="fas fa-check" style="color: #10b981;"></i> Đánh dấu Hoàn thành</button>
+          <button style="width: 100%; padding: 10px; background: white; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; color: #dc2626; font-weight: 500;"><i class="fas fa-trash"></i> Xóa công việc</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

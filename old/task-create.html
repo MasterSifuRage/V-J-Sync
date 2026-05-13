@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tạo Công Việc - V/J Sync</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    :root {
+      --primary: #1e40af; --primary-dark: #1e3a8a;
+      --text-main: #1e2937; --text-muted: #64748b; --border-color: #e2e8f0;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 100%); min-height: 100vh; display: flex; }
+
+    /* --- SIDEBAR BẢN GỐC --- */
+    .sidebar { width: 280px; background: white; box-shadow: 2px 0 20px rgba(0,0,0,0.08); padding: 24px 0; height: 100vh; position: fixed; overflow-y: auto; z-index: 100; }
+    .logo-container { display: flex; align-items: center; gap: 12px; padding: 0 24px 32px; border-bottom: 1px solid var(--border-color); }
+    .logo-container img { width: 52px; height: 52px; border-radius: 14px; }
+    .logo-container span { font-size: 26px; font-weight: 700; color: var(--primary); }
+    .nav-menu { padding: 20px 16px; }
+    .nav-item { display: flex; align-items: center; gap: 14px; padding: 14px 20px; margin: 6px 8px; border-radius: 12px; color: #475569; text-decoration: none; font-weight: 500; transition: 0.3s; }
+    .nav-item:hover, .nav-item.active { background: #f1f5f9; color: var(--primary); }
+    .nav-item i { font-size: 20px; width: 24px; }
+
+    /* --- MAIN CONTENT --- */
+    .main-content { margin-left: 280px; flex: 1; padding: 32px 40px; }
+    
+    .breadcrumb { font-size: 14px; color: var(--text-muted); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .breadcrumb a { color: var(--primary); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { text-decoration: underline; }
+
+    .header { margin-bottom: 32px; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 28px; font-weight: 700; color: var(--text-main); }
+
+    .form-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 32px; align-items: start; }
+    
+    .card { background: white; border-radius: 16px; padding: 28px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); border: 1px solid var(--border-color); }
+
+    /* Nhập liệu */
+    .form-group { margin-bottom: 24px; }
+    .form-group label { display: block; font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 8px; }
+    
+    input[type="text"], input[type="date"], select, textarea {
+      width: 100%; padding: 12px 16px; border: 2px solid var(--border-color); border-radius: 10px;
+      font-size: 15px; font-family: inherit; transition: 0.2s; outline: none;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--primary); }
+    
+    .title-input { font-size: 18px !important; font-weight: 600; padding: 16px !important; }
+
+    /* Rich text editor giả lập */
+    .editor-toolbar { display: flex; gap: 12px; padding: 12px; background: #f8fafc; border: 2px solid var(--border-color); border-bottom: none; border-radius: 10px 10px 0 0; }
+    .editor-toolbar i { color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; }
+    .editor-toolbar i:hover { color: var(--primary); background: #e2e8f0; }
+    .editor-area { border-radius: 0 0 10px 10px !important; border-top: none !important; resize: vertical; min-height: 200px; }
+
+    .translate-box { margin-top: 12px; padding: 12px 16px; background: #eff6ff; border: 1px dashed #3b82f6; border-radius: 8px; display: flex; align-items: flex-start; gap: 12px; }
+    
+    /* Right Panel Items */
+    .meta-item { margin-bottom: 20px; }
+    .meta-item label { font-size: 13px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-bottom: 8px; display: block; }
+    
+    .assignee-select { display: flex; align-items: center; gap: 10px; padding: 10px; border: 2px solid var(--border-color); border-radius: 10px; cursor: pointer; }
+    .assignee-select img { width: 28px; height: 28px; border-radius: 50%; background: #eab308; }
+
+    .action-buttons { display: flex; gap: 16px; margin-top: 32px; justify-content: flex-end; }
+    .btn { padding: 12px 24px; border-radius: 10px; font-weight: 600; font-size: 15px; cursor: pointer; transition: 0.2s; border: none; }
+    .btn-cancel { background: white; border: 2px solid var(--border-color); color: var(--text-muted); }
+    .btn-cancel:hover { background: #f1f5f9; color: var(--text-main); }
+    .btn-submit { background: var(--primary); color: white; }
+    .btn-submit:hover { background: var(--primary-dark); }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="logo-container"><img src="vj-logo.png" alt="Logo"><span>V/J Sync</span></div>
+    <div class="nav-menu">
+      <a href="home.html" class="nav-item"><i class="fas fa-home"></i> Trang chủ</a>
+      <a href="chat.html" class="nav-item"><i class="fas fa-comments"></i> Chat</a>
+      <a href="task-list.html" class="nav-item active"><i class="fas fa-tasks"></i> Công việc</a>
+      <a href="remind-list.html" class="nav-item"><i class="fas fa-bell"></i> Nhắc nhở</a>
+      <a href="workspace-select.html" class="nav-item"><i class="fas fa-building"></i> Workspace</a>
+      <a href="settings.html" class="nav-item"><i class="fas fa-cog"></i> Cài đặt</a>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="breadcrumb">
+      <a href="task-list.html">Công việc</a> <i class="fas fa-chevron-right" style="font-size: 10px;"></i> <span>Tạo công việc mới</span>
+    </div>
+
+    <div class="header">
+      <h1>Tạo công việc mới</h1>
+      <button class="btn btn-submit" onclick="window.location.href='task-list.html'">Tạo nhanh</button>
+    </div>
+
+    <div class="form-layout">
+      <div class="card">
+        <div class="form-group">
+          <label>Tên công việc</label>
+          <input type="text" class="title-input" placeholder="Ví dụ: Thiết kế API xác thực người dùng...">
+        </div>
+
+        <div class="form-group">
+          <label>Mô tả chi tiết</label>
+          <div class="editor-toolbar">
+            <i class="fas fa-bold"></i><i class="fas fa-italic"></i><i class="fas fa-list-ul"></i>
+            <span style="border-left: 1px solid var(--border-color); margin: 0 4px;"></span>
+            <i class="fas fa-paperclip" title="Đính kèm file"></i>
+          </div>
+          <textarea class="editor-area" placeholder="Nhập mô tả công việc (Hỗ trợ Markdown)..."></textarea>
+          
+          <div class="translate-box">
+            <i class="fas fa-language" style="color: #3b82f6; font-size: 20px;"></i>
+            <div>
+              <div style="font-size: 13px; font-weight: 600; color: #1e3a8a;">Tự động dịch sang Tiếng Nhật</div>
+              <div style="font-size: 12px; color: #64748b;">Mô tả của bạn sẽ được AI tự động dịch sang tiếng Nhật để đối tác dễ dàng nắm bắt.</div>
+            </div>
+            <input type="checkbox" checked style="margin-left: auto; width: 18px; height: 18px; accent-color: #3b82f6;">
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="background: #f8fafc;">
+        <div class="meta-item">
+          <label>Trạng thái</label>
+          <select>
+            <option>Cần làm (To Do)</option>
+            <option>Đang xử lý (In Progress)</option>
+          </select>
+        </div>
+
+        <div class="meta-item">
+          <label>Người phụ trách</label>
+          <div class="assignee-select">
+            <div style="width: 24px; height: 24px; border-radius: 50%; background: #eab308; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700;">TS</div>
+            <span style="font-size: 14px; font-weight: 500;">Tanaka Sato</span>
+            <i class="fas fa-chevron-down" style="margin-left: auto; color: var(--text-muted);"></i>
+          </div>
+        </div>
+
+        <div class="meta-item">
+          <label>Hạn chót (Deadline)</label>
+          <input type="date">
+        </div>
+
+        <div class="meta-item">
+          <label>Mức độ ưu tiên</label>
+          <select>
+            <option>Bình thường</option>
+            <option>Cao</option>
+            <option>Khẩn cấp</option>
+          </select>
+        </div>
+
+        <div class="meta-item">
+          <label>Nhãn (Tag)</label>
+          <input type="text" placeholder="Nhập tag, ví dụ: Bug, Feature...">
+        </div>
+      </div>
+    </div>
+
+    <div class="action-buttons">
+      <button class="btn btn-cancel" onclick="window.history.back()">Hủy bỏ</button>
+      <button class="btn btn-submit" onclick="window.location.href='task-list.html'">Tạo công việc</button>
+    </div>
+
+  </div>
+</body>
+</html>

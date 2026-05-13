@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Danh sách Công việc - V/J Sync</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    :root {
+      --primary: #1e40af;
+      --primary-dark: #1e3a8a;
+      --bg-gray: #f8fafc;
+      --text-main: #1e2937;
+      --text-muted: #64748b;
+      --todo: #e2e8f0;
+      --inprogress: #bfdbfe;
+      --review: #fef08a;
+      --done: #bbf7d0;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 100%);
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* --- SIDEBAR BẢN GỐC --- */
+    .sidebar {
+      width: 280px; background: white; box-shadow: 2px 0 20px rgba(0,0,0,0.08);
+      padding: 24px 0; height: 100vh; position: fixed; overflow-y: auto; z-index: 100;
+    }
+    .logo-container {
+      display: flex; align-items: center; gap: 12px; padding: 0 24px 32px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .logo-container img { width: 52px; height: 52px; border-radius: 14px; }
+    .logo-container span { font-size: 26px; font-weight: 700; color: var(--primary); }
+    .nav-menu { padding: 20px 16px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 14px; padding: 14px 20px;
+      margin: 6px 8px; border-radius: 12px; color: #475569;
+      text-decoration: none; font-weight: 500; transition: all 0.3s;
+    }
+    .nav-item:hover, .nav-item.active { background: #f1f5f9; color: var(--primary); }
+    .nav-item i { font-size: 20px; width: 24px; }
+
+    /* --- MAIN CONTENT --- */
+    .main-content {
+      margin-left: 280px; flex: 1; padding: 32px 40px; height: 100vh; display: flex; flex-direction: column;
+    }
+
+    .header {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;
+    }
+    .header h1 { font-size: 28px; font-weight: 700; color: var(--text-main); }
+
+    .header-actions { display: flex; gap: 16px; align-items: center; }
+    
+    .search-bar {
+      display: flex; align-items: center; background: white; border: 1px solid #e2e8f0;
+      border-radius: 10px; padding: 10px 16px; width: 300px;
+    }
+    .search-bar input {
+      border: none; outline: none; background: transparent; width: 100%; margin-left: 8px; font-family: inherit;
+    }
+
+    .btn-create {
+      background: var(--primary); color: white; border: none; padding: 12px 24px;
+      border-radius: 10px; font-weight: 600; cursor: pointer; transition: 0.3s;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .btn-create:hover { background: var(--primary-dark); }
+
+    /* KANBAN BOARD */
+    .board {
+      display: flex; gap: 24px; flex: 1; overflow-x: auto; padding-bottom: 20px;
+    }
+
+    .column {
+      background: #f1f5f9; border-radius: 16px; width: 320px; min-width: 320px;
+      display: flex; flex-direction: column; padding: 16px;
+    }
+
+    .col-header {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; font-weight: 600; color: var(--text-main);
+    }
+    .task-count {
+      background: white; padding: 2px 8px; border-radius: 12px; font-size: 13px; color: var(--text-muted);
+    }
+
+    .col-todo .col-indicator { color: #64748b; }
+    .col-inprogress .col-indicator { color: #3b82f6; }
+    .col-review .col-indicator { color: #eab308; }
+    .col-done .col-indicator { color: #10b981; }
+
+    .task-list-container {
+      display: flex; flex-direction: column; gap: 16px; flex: 1; overflow-y: auto; padding-right: 4px;
+    }
+
+    /* TASK CARD */
+    .task-card {
+      background: white; border-radius: 12px; padding: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+      border: 1px solid #e2e8f0; cursor: grab; transition: 0.2s;
+    }
+    .task-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.05); }
+
+    .task-tags { display: flex; gap: 8px; margin-bottom: 12px; }
+    .tag { font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 6px; }
+    .tag-sprint { background: #e0e7ff; color: #4f46e5; }
+    .tag-bug { background: #fee2e2; color: #dc2626; }
+    .tag-feature { background: #dcfce7; color: #16a34a; }
+
+    .task-title { font-size: 15px; font-weight: 600; color: var(--text-main); margin-bottom: 8px; line-height: 1.4; }
+    
+    .task-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
+    
+    .task-date { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+    .task-date.urgent { color: #dc2626; font-weight: 500; }
+
+    .assignees { display: flex; }
+    .assignee-avatar {
+      width: 28px; height: 28px; border-radius: 50%; background: #3b82f6; border: 2px solid white;
+      color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700;
+      margin-left: -8px;
+    }
+    .assignee-avatar:first-child { margin-left: 0; }
+
+    /* Custom Scrollbar cho mượt */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    @media (max-width: 1024px) { .sidebar { width: 80px; } .logo-container span, .nav-item span { display: none; } .main-content { margin-left: 80px; } }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="logo-container">
+      <img src="vj-logo.png" alt="V/J Sync Logo">
+      <span>V/J Sync</span>
+    </div>
+    <div class="nav-menu">
+      <a href="home.html" class="nav-item"><i class="fas fa-home"></i> <span>Trang chủ</span></a>
+      <a href="chat.html" class="nav-item"><i class="fas fa-comments"></i> <span>Chat</span></a>
+      <a href="task-list.html" class="nav-item active"><i class="fas fa-tasks"></i> <span>Công việc</span></a>
+      <a href="remind-list.html" class="nav-item"><i class="fas fa-bell"></i> <span>Nhắc nhở</span></a>
+      <a href="workspace-select.html" class="nav-item"><i class="fas fa-building"></i> <span>Workspace</span></a>
+      <a href="settings.html" class="nav-item"><i class="fas fa-cog"></i> <span>Cài đặt</span></a>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="header">
+      <div>
+        <h1>Tiến độ Công việc</h1>
+        <p style="color: var(--text-muted); font-size: 14px; margin-top: 4px;">Sprint hiện tại: 15/04 - 29/04</p>
+      </div>
+      
+      <div class="header-actions">
+        <div class="search-bar">
+          <i class="fas fa-search" style="color: #94a3b8;"></i>
+          <input type="text" placeholder="Tìm kiếm công việc...">
+        </div>
+        <button class="btn-create" onclick="window.location.href='task-create.html'">
+          <i class="fas fa-plus"></i> Tạo Task
+        </button>
+      </div>
+    </div>
+
+    <div class="board">
+      
+      <div class="column col-todo">
+        <div class="col-header">
+          <span><i class="fas fa-circle col-indicator" style="font-size: 10px; margin-right: 6px;"></i> Cần làm</span>
+          <span class="task-count">2</span>
+        </div>
+        <div class="task-list-container">
+          
+          <div class="task-card" onclick="window.location.href='task-detail.html'">
+            <div class="task-tags"><span class="tag tag-feature">Feature</span></div>
+            <div class="task-title">Thiết kế API xác thực người dùng</div>
+            <div class="task-meta">
+              <div class="task-date"><i class="far fa-clock"></i> 25/04</div>
+              <div class="assignees">
+                <div class="assignee-avatar" style="background: #1e40af;" title="Thành Long">TL</div>
+                <div class="assignee-avatar" style="background: #eab308;" title="Tanaka Sato">TS</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="task-card" onclick="window.location.href='task-detail.html'">
+            <div class="task-tags"><span class="tag tag-sprint">Sprint 2</span></div>
+            <div class="task-title">Dịch tài liệu yêu cầu sang Tiếng Nhật</div>
+            <div class="task-meta">
+              <div class="task-date"><i class="far fa-clock"></i> 26/04</div>
+              <div class="assignees">
+                <div class="assignee-avatar" style="background: #10b981;" title="Minh Anh">MA</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="column col-inprogress">
+        <div class="col-header">
+          <span><i class="fas fa-circle col-indicator" style="font-size: 10px; margin-right: 6px;"></i> Đang xử lý</span>
+          <span class="task-count">1</span>
+        </div>
+        <div class="task-list-container">
+          
+          <div class="task-card" onclick="window.location.href='task-detail.html'">
+            <div class="task-tags"><span class="tag tag-bug">Fix Bug</span></div>
+            <div class="task-title">Lỗi không tự động dịch tin nhắn trên iOS</div>
+            <div class="task-meta">
+              <div class="task-date urgent"><i class="far fa-clock"></i> Hôm nay</div>
+              <div class="assignees">
+                <div class="assignee-avatar" style="background: #1e40af;" title="Thành Long">TL</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="column col-review">
+        <div class="col-header">
+          <span><i class="fas fa-circle col-indicator" style="font-size: 10px; margin-right: 6px;"></i> Chờ đánh giá</span>
+          <span class="task-count">1</span>
+        </div>
+        <div class="task-list-container">
+          
+          <div class="task-card" onclick="window.location.href='task-detail.html'">
+            <div class="task-tags"><span class="tag tag-feature">Feature</span></div>
+            <div class="task-title">Hoàn thiện UI Màn hình Chat</div>
+            <div class="task-meta">
+              <div class="task-date"><i class="far fa-clock"></i> Trễ 1 ngày</div>
+              <div class="assignees">
+                <div class="assignee-avatar" style="background: #10b981;" title="Minh Anh">MA</div>
+                <div class="assignee-avatar" style="background: #eab308;" title="Tanaka Sato">TS</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="column col-done">
+        <div class="col-header">
+          <span><i class="fas fa-circle col-indicator" style="font-size: 10px; margin-right: 6px;"></i> Hoàn thành</span>
+          <span class="task-count">1</span>
+        </div>
+        <div class="task-list-container">
+          
+          <div class="task-card" style="opacity: 0.7;">
+            <div class="task-title" style="text-decoration: line-through; color: var(--text-muted);">Thiết lập server Database</div>
+            <div class="task-meta">
+              <div class="task-date" style="color: #16a34a;"><i class="fas fa-check-circle"></i> Đã xong</div>
+              <div class="assignees">
+                <div class="assignee-avatar" style="background: #1e40af;" title="Thành Long">TL</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</body>
+</html>

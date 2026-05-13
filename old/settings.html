@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cài đặt - V/J Sync</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    :root {
+      --primary: #1e40af;
+      --primary-dark: #1e3a8a;
+      --danger: #dc2626;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 100%);
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* --- SIDEBAR BẢN GỐC --- */
+    .sidebar {
+      width: 280px; background: white; box-shadow: 2px 0 20px rgba(0,0,0,0.08);
+      padding: 24px 0; height: 100vh; position: fixed; overflow-y: auto;
+    }
+    .logo-container {
+      display: flex; align-items: center; gap: 12px; padding: 0 24px 32px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .logo-container img { width: 52px; height: 52px; border-radius: 14px; }
+    .logo-container span { font-size: 26px; font-weight: 700; color: var(--primary); }
+    .nav-menu { padding: 20px 16px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 14px; padding: 14px 20px;
+      margin: 6px 8px; border-radius: 12px; color: #475569;
+      text-decoration: none; font-weight: 500; transition: all 0.3s;
+    }
+    .nav-item:hover, .nav-item.active { background: #f1f5f9; color: var(--primary); }
+    .nav-item i { font-size: 20px; width: 24px; }
+
+    /* --- MAIN CONTENT --- */
+    .main-content {
+      margin-left: 280px; flex: 1; padding: 32px 40px;
+    }
+
+    .header { margin-bottom: 32px; }
+    .header h1 { font-size: 28px; font-weight: 700; color: #1e2937; }
+
+    .settings-container { max-width: 900px; display: grid; gap: 24px; }
+
+    .settings-card {
+      background: white; border-radius: 20px; padding: 32px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+    }
+
+    .section-title {
+      font-size: 18px; font-weight: 600; color: #1e2937;
+      margin-bottom: 24px; display: flex; align-items: center; gap: 10px;
+    }
+
+    /* Profile Section */
+    .profile-header { display: flex; align-items: center; gap: 24px; margin-bottom: 24px; }
+    .profile-avatar {
+      width: 100px; height: 100px; border-radius: 50%; background: #3b82f6;
+      color: white; display: flex; align-items: center; justify-content: center;
+      font-size: 36px; font-weight: 700; position: relative;
+    }
+    .edit-avatar-btn {
+      position: absolute; bottom: 0; right: 0; background: white;
+      width: 32px; height: 32px; border-radius: 50%; border: 1px solid #e2e8f0;
+      display: flex; align-items: center; justify-content: center; font-size: 14px; color: #475569; cursor: pointer;
+    }
+
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .form-group { display: flex; flex-direction: column; gap: 8px; }
+    .form-group label { font-size: 14px; font-weight: 500; color: #475569; }
+    .form-group input, .form-group select {
+      padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 12px;
+      font-size: 15px; font-family: inherit; transition: 0.3s;
+    }
+    .form-group input:focus { border-color: var(--primary); outline: none; }
+
+    /* Toggles */
+    .setting-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 0; border-bottom: 1px solid #f1f5f9;
+    }
+    .setting-item:last-child { border-bottom: none; }
+    .setting-info h4 { font-size: 16px; color: #1e2937; margin-bottom: 4px; }
+    .setting-info p { font-size: 14px; color: #64748b; }
+
+    /* Switch UI */
+    .switch {
+      position: relative; display: inline-block; width: 48px; height: 24px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #cbd5e1; transition: .4s; border-radius: 24px;
+    }
+    .slider:before {
+      position: absolute; content: ""; height: 18px; width: 18px;
+      left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--primary); }
+    input:checked + .slider:before { transform: translateX(24px); }
+
+    .btn-save-settings {
+      background: var(--primary); color: white; border: none; padding: 14px 32px;
+      border-radius: 12px; font-weight: 600; cursor: pointer; margin-top: 10px; transition: 0.3s;
+    }
+    .btn-save-settings:hover { background: var(--primary-dark); transform: translateY(-2px); }
+
+    @media (max-width: 768px) {
+      .sidebar { display: none; } .main-content { margin-left: 0; padding: 20px; }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="logo-container">
+      <img src="vj-logo.png" alt="V/J Sync Logo">
+      <span>V/J Sync</span>
+    </div>
+    <div class="nav-menu">
+      <a href="home.html" class="nav-item"><i class="fas fa-home"></i> <span>Trang chủ</span></a>
+      <a href="chat.html" class="nav-item"><i class="fas fa-comments"></i> <span>Chat</span></a>
+      <a href="task-list.html" class="nav-item"><i class="fas fa-tasks"></i> <span>Công việc</span></a>
+      <a href="remind-list.html" class="nav-item"><i class="fas fa-bell"></i> <span>Nhắc nhở</span></a>
+      <a href="workspace-select.html" class="nav-item"><i class="fas fa-building"></i> <span>Workspace</span></a>
+      <a href="settings.html" class="nav-item active"><i class="fas fa-cog"></i> <span>Cài đặt</span></a>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="header">
+      <h1>Cài đặt hệ thống</h1>
+    </div>
+
+    <div class="settings-container">
+      
+      <div class="settings-card">
+        <h2 class="section-title"><i class="fas fa-user-circle"></i> Hồ sơ cá nhân</h2>
+        <div class="profile-header">
+          <div class="profile-avatar">
+            TL
+            <div class="edit-avatar-btn"><i class="fas fa-camera"></i></div>
+          </div>
+          <div>
+            <h3 style="font-size: 20px; color: #1e2937;">Thành Long</h3>
+            <p style="color: #64748b;">long.tv@techjapan.vn</p>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Họ và tên</label>
+            <input type="text" value="Thành Long">
+          </div>
+          <div class="form-group">
+            <label>Số điện thoại</label>
+            <input type="text" value="0987 654 321">
+          </div>
+          <div class="form-group">
+            <label>Vai trò</label>
+            <input type="text" value="Giám đốc" disabled style="background: #f1f5f9; cursor: not-allowed;">
+          </div>
+          <div class="form-group">
+            <label>Phòng ban</label>
+            <input type="text" value="Ban Giám đốc">
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-card">
+        <h2 class="section-title"><i class="fas fa-language"></i> Ngôn ngữ & Dịch thuật</h2>
+        <div class="form-grid" style="margin-bottom: 24px;">
+          <div class="form-group">
+            <label>Ngôn ngữ hiển thị ứng dụng</label>
+            <select>
+              <option selected>Tiếng Việt</option>
+              <option>Tiếng Nhật (日本語)</option>
+              <option>Tiếng Anh (English)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Ngôn ngữ dịch mặc định</label>
+            <select>
+              <option selected>Tiếng Nhật (日本語)</option>
+              <option>Tiếng Việt</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-info">
+            <h4>Tự động dịch tin nhắn</h4>
+            <p>Hiển thị bản dịch ngay dưới tin nhắn của đối tác Nhật Bản.</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-info">
+            <h4>Kiểm tra ngữ pháp AI</h4>
+            <p>Gợi ý sửa lỗi khi bạn soạn thảo tin nhắn tiếng Nhật.</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-card">
+        <h2 class="section-title"><i class="fas fa-bell"></i> Thông báo</h2>
+        
+        <div class="setting-item">
+          <div class="setting-info">
+            <h4>Thông báo tin nhắn mới</h4>
+            <p>Nhận thông báo khi có đồng nghiệp gửi tin nhắn.</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-info">
+            <h4>Nhắc nhở công việc</h4>
+            <p>Thông báo khi đến hạn Task hoặc lịch Remind.</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-info">
+            <h4>Âm thanh thông báo</h4>
+            <p>Phát âm thanh khi có tin nhắn hoặc thông báo mới.</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 16px; margin-bottom: 40px;">
+        <button class="btn-save-settings">Lưu tất cả thay đổi</button>
+        <button style="background: white; border: 2px solid #e2e8f0; color: #475569; padding: 14px 32px; border-radius: 12px; font-weight: 600; cursor: pointer;">Hủy</button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    document.querySelector('.btn-save-settings').addEventListener('click', function() {
+      alert('Cài đặt của bạn đã được cập nhật thành công!');
+    });
+  </script>
+
+</body>
+</html>
