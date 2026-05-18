@@ -18,15 +18,6 @@ export default function HomePage() {
     ? ROLE_NAMES[currentWorkspace.roleId]
     : 'Thành viên';
 
-  const initials = user?.name
-    ? user.name
-        .split(' ')
-        .map((w) => w[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase()
-    : '?';
-
   return (
     <div className="home-page">
       {/* Header */}
@@ -37,9 +28,6 @@ export default function HomePage() {
             {roleName}
             {currentWorkspace && <> &bull; {currentWorkspace.name}</>}
           </p>
-        </div>
-        <div className="home-avatar" title={user?.name}>
-          {initials}
         </div>
       </div>
 

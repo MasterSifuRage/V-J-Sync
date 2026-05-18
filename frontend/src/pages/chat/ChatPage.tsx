@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { useAuthStore } from '../../store/authStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { channelAPI, messageAPI, aiAPI } from '../../services/api';
@@ -7,6 +8,7 @@ import { Channel, Message } from '../../types';
 import io, { Socket } from 'socket.io-client';
 import Sidebar from '../../components/layout/Sidebar';
 import { getStoredToken } from '../../lib/authToken';
+import { getTranslateTarget } from '../../lib/translateTarget';
 import './ChatPage.css';
 
 export default function ChatPage() {
@@ -128,17 +130,32 @@ export default function ChatPage() {
       return;
     }
     try {
+      const senderLang =
+        msg.sender?.preferredLanguage === 'ja'
+          ? 'ja'
+          : msg.sender?.preferredLanguage === 'en'
+            ? 'en'
+            : 'vi';
       const res = await aiAPI.translate({
         text: msg.content,
-        from: user?.preferredLanguage === 'ja' ? 'vi' : 'ja',
-        to: user?.preferredLanguage || 'vi',
+        from: senderLang,
+        to: getTranslateTarget(),
       });
+      const translated =
+        res.data.translated ?? res.data.translation ?? res.data.text ?? '';
       setTranslations((prev) => ({
         ...prev,
-        [msg.id]: res.data.translated || res.data.translation || res.data.text,
+        [msg.id]: translated || '[Không có bản dịch]',
       }));
-    } catch {
-      setTranslations((prev) => ({ ...prev, [msg.id]: '[Lỗi dịch]' }));
+    } catch (err) {
+      const apiMsg = axios.isAxiosError(err)
+        ? (err.response?.data as { error?: string; details?: string } | undefined)?.error ||
+          (err.response?.data as { details?: string } | undefined)?.details
+        : undefined;
+      setTranslations((prev) => ({
+        ...prev,
+        [msg.id]: apiMsg ? `[Lỗi dịch] ${apiMsg}` : '[Lỗi dịch]',
+      }));
     }
   };
 
@@ -168,14 +185,22 @@ export default function ChatPage() {
 
   return (
     <div className="chat-page">
-      {/* 1. Shared Sidebar */}
+      {/* 1. Shared Sidebar (position: fixed — không chiếm chỗ trong flex) */}
       <Sidebar />
 
-      {/* 2. Workspace Channel Nav */}
+      {/* 2. Khu vực giống old/chat.html .main-content: margin-left = sidebar */}
+      <div className="chat-body">
+      {/* Workspace / channel nav */}
       <div className="channel-nav">
-        <div className="channel-nav-header">
+        <button
+          type="button"
+          className="channel-nav-header workspace-switcher"
+          onClick={() => navigate('/workspaces')}
+          title="Đổi workspace"
+        >
           <h2>{currentWorkspace?.name || 'Workspace'}</h2>
-        </div>
+          <i className="fas fa-chevron-down workspace-switcher-chevron" aria-hidden />
+        </button>
 
         <div className="channel-section">
           <div className="channel-section-title">
@@ -344,6 +369,7 @@ export default function ChatPage() {
           <h5>File được chia sẻ</h5>
           <p style={{ color: '#94a3b8', fontSize: 13 }}>Chưa có file nào.</p>
         </div>
+      </div>
       </div>
     </div>
   );

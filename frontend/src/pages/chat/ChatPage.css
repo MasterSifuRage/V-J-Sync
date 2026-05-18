@@ -11,8 +11,34 @@
 
 .chat-page {
   display: flex;
+  flex-direction: row;
   height: 100vh;
   overflow: hidden;
+  position: relative;
+}
+
+/* Giống old/chat.html: .main-content { margin-left: 280px; flex: 1; display: flex } —
+   Sidebar app là fixed nên cần offset để channel-nav / chat không nằm dưới sidebar */
+.chat-body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  height: 100vh;
+  overflow: hidden;
+  margin-left: var(--sidebar-width, 240px);
+  position: relative;
+}
+
+@media (max-width: 1024px) {
+  .chat-body {
+    margin-left: var(--sidebar-collapsed, 56px);
+  }
+}
+
+@media (max-width: 768px) {
+  .chat-body {
+    margin-left: 0;
+  }
 }
 
 /* ===== Workspace Channel Nav (2nd sidebar) ===== */
@@ -24,21 +50,51 @@
   flex-direction: column;
   overflow-y: auto;
   flex-shrink: 0;
+  border-right: 1px solid rgba(0, 0, 0, 0.12);
 }
 
 .channel-nav-header {
-  padding: 20px 20px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.channel-nav-header h2 {
+.workspace-switcher {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  transition: background 0.15s;
+}
+
+.workspace-switcher:hover {
+  background: var(--slack-hover);
+}
+
+.workspace-switcher h2 {
   color: var(--slack-text-bright);
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 700;
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.workspace-switcher-chevron {
+  font-size: 11px;
+  color: #94a3b8;
+  flex-shrink: 0;
 }
 
 .channel-section {

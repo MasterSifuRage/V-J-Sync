@@ -1,5 +1,6 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import axios from 'axios';
 import { useAuthStore } from '../../store/authStore';
 import './LoginPage.css';
 
@@ -26,12 +27,29 @@ export default function LoginPage() {
     try {
       await login(email, password);
       navigate('/home');
-    } catch (err: any) {
-      setError(
-        err.response?.data?.error ||
-          err.response?.data?.message ||
-          'Đăng nhập thất bại. Vui lòng thử lại.'
-      );
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        const data = err.response?.data as { error?: string; message?: string } | undefined;
+        const fromApi = data?.error || data?.message;
+        if (fromApi) {
+          setError(fromApi);
+        } else if (!err.response) {
+          setError(
+            'Không kết nối được máy chủ API. Hãy chạy backend (cd backend && npm run dev, cổng 3001). Hoặc từ thư mục gốc repo: npm install && npm run dev để chạy cả backend và frontend.'
+          );
+        } else {
+          const st = err.response.status;
+          if ((st === 500 || st === 502 || st === 503 || st === 504) && !fromApi) {
+            setError(
+              'Backend chưa chạy hoặc không lắng nghe cổng 3001 (Vite báo ECONNREFUSED khi proxy /api). Mở terminal khác: cd backend && npm run dev. Hoặc từ thư mục gốc repo: npm install && npm run dev để chạy cả hai.',
+            );
+          } else {
+            setError(`Lỗi ${st}. Vui lòng thử lại.`);
+          }
+        }
+      } else {
+        setError('Đăng nhập thất bại. Vui lòng thử lại.');
+      }
     } finally {
       setLoading(false);
     }

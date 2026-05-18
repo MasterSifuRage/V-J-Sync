@@ -64,7 +64,11 @@ export const register = async (req: Request, res: Response) => {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: err.errors[0].message });
     }
-    throw err;
+    console.error('[auth/register]', err);
+    return res.status(503).json({
+      error:
+        'Không thể ghi cơ sở dữ liệu. Kiểm tra PostgreSQL đang chạy, DATABASE_URL trong backend/.env, và đã chạy migration/seed.',
+    });
   }
 };
 
@@ -106,7 +110,11 @@ export const login = async (req: Request, res: Response) => {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: err.errors[0].message });
     }
-    throw err;
+    console.error('[auth/login]', err);
+    return res.status(503).json({
+      error:
+        'Không kết nối được cơ sở dữ liệu hoặc lỗi máy chủ. Kiểm tra PostgreSQL, DATABASE_URL, và chạy npm run db:seed trong thư mục backend.',
+    });
   }
 };
 

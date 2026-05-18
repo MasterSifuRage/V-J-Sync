@@ -1,6 +1,7 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import Sidebar from './Sidebar';
+import AppTopbar from './AppTopbar';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import './AppLayout.css';
 
@@ -23,9 +24,12 @@ export default function AppLayout() {
   return (
     <div className="app-layout">
       <Sidebar />
-      <main className="main-content">
-        <Outlet />
-      </main>
+      <div className="app-shell">
+        <AppTopbar />
+        <main className="main-content">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

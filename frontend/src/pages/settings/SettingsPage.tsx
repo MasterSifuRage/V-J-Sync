@@ -1,7 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { userAPI } from '../../services/api';
+import { getTranslateTarget, setTranslateTarget, type TranslateTargetLang } from '../../lib/translateTarget';
 import './SettingsPage.css';
+
+type ModalState =
+  | null
+  | {
+      type: 'success' | 'error' | 'info' | 'confirm-cancel';
+      title?: string;
+      message: string;
+    };
+
+function translateLangLabel(v: TranslateTargetLang): string {
+  if (v === 'ja') return '日本語';
+  if (v === 'en') return 'English';
+  return 'Tiếng Việt';
+}
 
 export default function SettingsPage() {
   const { user, setUser } = useAuthStore();
@@ -10,15 +25,37 @@ export default function SettingsPage() {
   const [phone, setPhone] = useState('');
   const [department, setDepartment] = useState('');
   const [preferredLanguage, setPreferredLanguage] = useState('vi');
-  const [translateLanguage, setTranslateLanguage] = useState('ja');
+  const [translateLanguage, setTranslateLanguage] = useState<TranslateTargetLang>(() => getTranslateTarget());
   const [autoTranslate, setAutoTranslate] = useState(true);
   const [aiGrammar, setAiGrammar] = useState(false);
   const [notifyMessages, setNotifyMessages] = useState(true);
   const [notifyReminders, setNotifyReminders] = useState(true);
   const [notifySound, setNotifySound] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [modal, setModal] = useState<ModalState>(null);
+
+  /** Giá trị “đã lưu / khi mở trang” để Hủy và Kiểm tra thay đổi */
+  const translateBaseline = useRef<TranslateTargetLang>(getTranslateTarget());
+  const togglesBaseline = useRef({
+    autoTranslate: true,
+    aiGrammar: false,
+    notifyMessages: true,
+    notifyReminders: true,
+    notifySound: true,
+  });
+
+  useEffect(() => {
+    const t = getTranslateTarget();
+    translateBaseline.current = t;
+    setTranslateLanguage(t);
+    togglesBaseline.current = {
+      autoTranslate: true,
+      aiGrammar: false,
+      notifyMessages: true,
+      notifyReminders: true,
+      notifySound: true,
+    };
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -27,6 +64,33 @@ export default function SettingsPage() {
     setDepartment(user.department || '');
     setPreferredLanguage(user.preferredLanguage || 'vi');
   }, [user]);
+
+  const profileDirty = useMemo(
+    () =>
+      !!user &&
+      (name.trim() !== (user.name || '') ||
+        phone.trim() !== (user.phone || '') ||
+        department.trim() !== (user.department || '') ||
+        preferredLanguage !== (user.preferredLanguage || 'vi')),
+    [user, name, phone, department, preferredLanguage],
+  );
+
+  const togglesDirty = useMemo(
+    () =>
+      autoTranslate !== togglesBaseline.current.autoTranslate ||
+      aiGrammar !== togglesBaseline.current.aiGrammar ||
+      notifyMessages !== togglesBaseline.current.notifyMessages ||
+      notifyReminders !== togglesBaseline.current.notifyReminders ||
+      notifySound !== togglesBaseline.current.notifySound,
+    [autoTranslate, aiGrammar, notifyMessages, notifyReminders, notifySound],
+  );
+
+  const translateDirty = useMemo(
+    () => translateLanguage !== translateBaseline.current,
+    [translateLanguage],
+  );
+
+  const hasUnsavedChanges = profileDirty || togglesDirty || translateDirty;
 
   const initials = name
     ? name
@@ -37,10 +101,25 @@ export default function SettingsPage() {
         .toUpperCase()
     : '?';
 
+  const resetFormFromBaseline = () => {
+    if (!user) return;
+    setName(user.name || '');
+    setPhone(user.phone || '');
+    setDepartment(user.department || '');
+    setPreferredLanguage(user.preferredLanguage || 'vi');
+    const t0 = translateBaseline.current;
+    setTranslateLanguage(t0);
+    setTranslateTarget(t0);
+    const tb = togglesBaseline.current;
+    setAutoTranslate(tb.autoTranslate);
+    setAiGrammar(tb.aiGrammar);
+    setNotifyMessages(tb.notifyMessages);
+    setNotifyReminders(tb.notifyReminders);
+    setNotifySound(tb.notifySound);
+  };
+
   const handleSave = async () => {
     setSaving(true);
-    setError('');
-    setSuccess('');
     try {
       const res = await userAPI.updateProfile({
         name: name.trim(),
@@ -49,21 +128,65 @@ export default function SettingsPage() {
         preferredLanguage,
       });
       setUser(res.data.user ?? res.data);
-      setSuccess('Đã lưu thay đổi thành công!');
-      setTimeout(() => setSuccess(''), 3000);
+      togglesBaseline.current = {
+        autoTranslate,
+        aiGrammar,
+        notifyMessages,
+        notifyReminders,
+        notifySound,
+      };
+      translateBaseline.current = getTranslateTarget();
+      setModal({
+        type: 'success',
+        title: 'Đã lưu',
+        message:
+          'Hồ sơ đã được lưu trên máy chủ. Ngôn ngữ dịch và các công tắc trên trang được coi là đã đồng bộ với phiên làm việc hiện tại.',
+      });
     } catch {
-      setError('Không thể lưu thay đổi. Vui lòng thử lại.');
+      setModal({
+        type: 'error',
+        title: 'Lưu thất bại',
+        message: 'Không thể lưu thay đổi. Kiểm tra kết nối và thử lại.',
+      });
     } finally {
       setSaving(false);
     }
   };
 
-  const handleCancel = () => {
-    if (!user) return;
-    setName(user.name || '');
-    setPhone(user.phone || '');
-    setDepartment(user.department || '');
-    setPreferredLanguage(user.preferredLanguage || 'vi');
+  const handleCancelClick = () => {
+    if (hasUnsavedChanges) {
+      setModal({
+        type: 'confirm-cancel',
+        title: 'Hủy thay đổi?',
+        message:
+          'Có thay đổi chưa lưu (hồ sơ, thông báo, hoặc ngôn ngữ dịch). Bạn có chắc muốn hoàn tác và khôi phục như lúc mở trang / sau lần lưu gần nhất?',
+      });
+      return;
+    }
+    setModal({
+      type: 'info',
+      title: 'Thông báo',
+      message: 'Không có thay đổi nào để hủy.',
+    });
+  };
+
+  const confirmDiscard = () => {
+    resetFormFromBaseline();
+    setModal({
+      type: 'info',
+      title: 'Đã hoàn tác',
+      message: 'Các thay đổi đã được khôi phục về trạng thái trước đó.',
+    });
+  };
+
+  const onTranslateChange = (v: TranslateTargetLang) => {
+    setTranslateLanguage(v);
+    setTranslateTarget(v);
+    setModal({
+      type: 'info',
+      title: 'Đã cập nhật',
+      message: `Ngôn ngữ dịch sang: ${translateLangLabel(v)} (lưu trên trình duyệt; áp dụng ngay trong chat).`,
+    });
   };
 
   return (
@@ -72,9 +195,6 @@ export default function SettingsPage() {
         <h1>Cài đặt</h1>
         <p className="settings-subtitle">Quản lý hồ sơ và tùy chọn cá nhân</p>
       </div>
-
-      {error && <div className="settings-error">{error}</div>}
-      {success && <div className="settings-success">{success}</div>}
 
       {/* Card 1: Profile */}
       <div className="settings-card">
@@ -90,7 +210,7 @@ export default function SettingsPage() {
                 <span>{initials}</span>
               )}
             </div>
-            <button className="avatar-edit" title="Đổi ảnh đại diện">
+            <button type="button" className="avatar-edit" title="Đổi ảnh đại diện">
               <i className="fas fa-camera" />
             </button>
           </div>
@@ -162,7 +282,7 @@ export default function SettingsPage() {
             <select
               id="s-translate"
               value={translateLanguage}
-              onChange={(e) => setTranslateLanguage(e.target.value)}
+              onChange={(e) => onTranslateChange(e.target.value as TranslateTargetLang)}
             >
               <option value="ja">日本語</option>
               <option value="vi">Tiếng Việt</option>
@@ -253,15 +373,52 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Footer */}
       <div className="settings-footer">
-        <button className="btn-cancel" onClick={handleCancel}>
+        <button type="button" className="btn-cancel" onClick={handleCancelClick}>
           Hủy
         </button>
-        <button className="btn-save-all" onClick={handleSave} disabled={saving}>
+        <button type="button" className="btn-save-all" onClick={handleSave} disabled={saving}>
           {saving ? 'Đang lưu...' : 'Lưu tất cả thay đổi'}
         </button>
       </div>
+
+      {modal && (
+        <div
+          className="settings-modal-overlay"
+          role="presentation"
+          onClick={() => modal.type !== 'confirm-cancel' && setModal(null)}
+        >
+          <div
+            className="settings-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="settings-modal-title" className="settings-modal-title">
+              {modal.title ||
+                (modal.type === 'success' ? 'Thành công' : modal.type === 'error' ? 'Lỗi' : 'Thông báo')}
+            </h3>
+            <p className="settings-modal-message">{modal.message}</p>
+            <div className="settings-modal-actions">
+              {modal.type === 'confirm-cancel' ? (
+                <>
+                  <button type="button" className="settings-modal-btn secondary" onClick={() => setModal(null)}>
+                    Tiếp tục chỉnh sửa
+                  </button>
+                  <button type="button" className="settings-modal-btn danger" onClick={confirmDiscard}>
+                    Hủy thay đổi
+                  </button>
+                </>
+              ) : (
+                <button type="button" className="settings-modal-btn primary" onClick={() => setModal(null)}>
+                  Đóng
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
