@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { taskAPI, workspaceAPI } from '../../services/api';
 import { WorkspaceMember } from '../../types';
+import { ROLE } from '../../lib/workspaceRole';
 import './TaskCreatePage.css';
 
 export default function TaskCreatePage() {
@@ -48,8 +49,14 @@ export default function TaskCreatePage() {
     setTags(tags.filter((t) => t !== tag));
   };
 
+  const assignableMembers = members.filter((m) => m.roleId === ROLE.EMPLOYEE);
+
   const handleSubmit = async () => {
     if (!currentWorkspace || !title.trim()) return;
+    if (!assigneeId) {
+      setError('Vui lòng chọn nhân viên được giao việc.');
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
@@ -60,7 +67,7 @@ export default function TaskCreatePage() {
         priority,
         tags,
         dueDate: dueDate || undefined,
-        assigneeId: assigneeId || undefined,
+        assigneeId,
         autoTranslate,
       });
       navigate('/tasks');
@@ -177,15 +184,18 @@ export default function TaskCreatePage() {
           </div>
 
           <div className="form-group">
-            <label>Người thực hiện</label>
+            <label>Nhân viên được giao *</label>
             <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)}>
-              <option value="">-- Chọn người thực hiện --</option>
-              {members.map((m) => (
+              <option value="">-- Chọn nhân viên --</option>
+              {assignableMembers.map((m) => (
                 <option key={m.userId} value={m.userId}>
                   {m.user.name}
                 </option>
               ))}
             </select>
+            {assignableMembers.length === 0 && (
+              <p className="form-hint">Chưa có nhân viên trong workspace. Admin cần thêm thành viên trước.</p>
+            )}
           </div>
 
           <div className="form-group">
@@ -235,7 +245,7 @@ export default function TaskCreatePage() {
         </button>
         <button
           className="btn-submit-task"
-          disabled={!title.trim() || submitting}
+          disabled={!title.trim() || !assigneeId || submitting}
           onClick={handleSubmit}
         >
           {submitting ? 'Đang tạo...' : 'Tạo công việc'}

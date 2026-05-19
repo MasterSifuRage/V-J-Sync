@@ -105,8 +105,31 @@
 .app-topbar-right {
   display: flex;
   align-items: center;
-  gap: 10px;
   flex-shrink: 0;
+}
+
+.app-topbar-user-menu {
+  position: relative;
+}
+
+.app-topbar-user-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 4px 10px;
+  margin: 0 -4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.app-topbar-user-trigger:hover,
+.app-topbar-user-trigger.is-open {
+  background: var(--bg-gray);
+  border-color: var(--border-color);
 }
 
 .app-topbar-user {
@@ -149,14 +172,131 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  text-decoration: none;
   flex-shrink: 0;
   border: 1px solid var(--primary-dark);
-  transition: filter 0.12s;
 }
 
-.app-topbar-avatar:hover {
-  filter: brightness(1.05);
+.app-topbar-chevron {
+  font-size: 10px;
+  color: var(--text-muted);
+  transition: transform 0.15s;
+}
+
+.app-topbar-user-trigger.is-open .app-topbar-chevron {
+  transform: rotate(180deg);
+}
+
+.app-topbar-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  z-index: 500;
+  padding: 6px 0;
+  animation: topbarMenuIn 0.15s ease-out;
+}
+
+@keyframes topbarMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.app-topbar-dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.app-topbar-dropdown-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.app-topbar-dropdown-header strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-main);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-topbar-dropdown-header span {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-topbar-dropdown-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 0;
+}
+
+.app-topbar-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  background: none;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-main);
+  text-decoration: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.1s;
+}
+
+.app-topbar-dropdown-item i {
+  width: 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.app-topbar-dropdown-item:hover {
+  background: var(--bg-gray);
+}
+
+.app-topbar-dropdown-item--danger {
+  color: var(--danger);
+}
+
+.app-topbar-dropdown-item--danger i {
+  color: var(--danger);
+}
+
+.app-topbar-dropdown-item--danger:hover {
+  background: #fef2f2;
 }
 
 @media (max-width: 1100px) {

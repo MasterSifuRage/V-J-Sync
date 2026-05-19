@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../../store/authStore';
+import { useWorkspaceStore } from '../../store/workspaceStore';
 import { taskAPI } from '../../services/api';
+import { canCreateTask, isEmployee } from '../../lib/workspaceRole';
 import { Task } from '../../types';
+import UserAvatar from '../../components/common/UserAvatar';
 import './TaskDetailPage.css';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -24,15 +26,6 @@ function getTagClass(tag: string): string {
   if (lower.includes('bug')) return 'tag-bug';
   if (lower.includes('feature') || lower.includes('tính năng')) return 'tag-feature';
   return 'tag-default';
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
 }
 
 function formatDateTime(dateStr: string): string {
@@ -58,7 +51,10 @@ function formatDate(dateStr?: string): string {
 export default function TaskDetailPage() {
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { currentWorkspace } = useWorkspaceStore();
+  const roleId = currentWorkspace?.roleId;
+  const employeeView = isEmployee(roleId);
+  const canManageTask = canCreateTask(roleId);
   const [task, setTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
   const [comment, setComment] = useState('');
@@ -95,11 +91,11 @@ export default function TaskDetailPage() {
     }
   };
 
-  const handleMarkDone = async () => {
-    if (!taskId || !task || task.status === 'done') return;
+  const handleStatusChange = async (newStatus: string) => {
+    if (!taskId || !task || task.status === newStatus) return;
     setActionLoading(true);
     try {
-      await taskAPI.update(taskId, { status: 'done' });
+      await taskAPI.update(taskId, { status: newStatus });
       await fetchTask();
     } catch {
       // silently fail
@@ -170,13 +166,12 @@ export default function TaskDetailPage() {
             <div className="meta-value">
               {task.assignee ? (
                 <div className="meta-user">
-                  <div className="avatar-sm">
-                    {task.assignee.avatarUrl ? (
-                      <img src={task.assignee.avatarUrl} alt="" />
-                    ) : (
-                      getInitials(task.assignee.name)
-                    )}
-                  </div>
+                  <UserAvatar
+                    name={task.assignee.name}
+                    avatarUrl={task.assignee.avatarUrl}
+                    size="sm"
+                    className="avatar-sm"
+                  />
                   <span>{task.assignee.name}</span>
                 </div>
               ) : (
@@ -189,13 +184,12 @@ export default function TaskDetailPage() {
             <span className="meta-label">Người tạo</span>
             <div className="meta-value">
               <div className="meta-user">
-                <div className="avatar-sm">
-                  {task.creator.avatarUrl ? (
-                    <img src={task.creator.avatarUrl} alt="" />
-                  ) : (
-                    getInitials(task.creator.name)
-                  )}
-                </div>
+                <UserAvatar
+                  name={task.creator.name}
+                  avatarUrl={task.creator.avatarUrl}
+                  size="sm"
+                  className="avatar-sm"
+                />
                 <span>{task.creator.name}</span>
               </div>
             </div>
@@ -234,13 +228,12 @@ export default function TaskDetailPage() {
             <div className="comment-list">
               {task.comments.map((c) => (
                 <div className="comment-item" key={c.id}>
-                  <div className="comment-avatar">
-                    {c.user.avatarUrl ? (
-                      <img src={c.user.avatarUrl} alt="" />
-                    ) : (
-                      getInitials(c.user.name)
-                    )}
-                  </div>
+                  <UserAvatar
+                    name={c.user.name}
+                    avatarUrl={c.user.avatarUrl}
+                    size="md"
+                    className="comment-avatar"
+                  />
                   <div className="comment-body">
                     <div className="comment-header">
                       <span className="comment-author">{c.user.name}</span>
@@ -282,34 +275,53 @@ export default function TaskDetailPage() {
 
       {/* Actions */}
       <div className="task-detail-actions">
-        <button
-          className={`btn-complete ${task.status === 'done' ? 'already-done' : ''}`}
-          disabled={task.status === 'done' || actionLoading}
-          onClick={handleMarkDone}
-        >
-          <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
-            <path
-              fillRule="evenodd"
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-              clipRule="evenodd"
-            />
-          </svg>
-          {task.status === 'done' ? 'Đã hoàn thành' : 'Đánh dấu hoàn thành'}
-        </button>
-        <button
-          className="btn-delete"
-          onClick={handleDelete}
-          disabled={actionLoading}
-        >
-          <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
-            <path
-              fillRule="evenodd"
-              d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-              clipRule="evenodd"
-            />
-          </svg>
-          Xóa
-        </button>
+        {employeeView ? (
+          <div className="task-employee-status-form">
+            <label htmlFor="task-status-select">Cập nhật tiến độ</label>
+            <select
+              id="task-status-select"
+              value={task.status}
+              disabled={actionLoading}
+              onChange={(e) => handleStatusChange(e.target.value)}
+            >
+              <option value="todo">Cần làm</option>
+              <option value="in_progress">Đang xử lý</option>
+              <option value="review">Chờ đánh giá</option>
+              <option value="done">Hoàn thành</option>
+            </select>
+          </div>
+        ) : (
+          <button
+            className={`btn-complete ${task.status === 'done' ? 'already-done' : ''}`}
+            disabled={task.status === 'done' || actionLoading}
+            onClick={() => handleStatusChange('done')}
+          >
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+              <path
+                fillRule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clipRule="evenodd"
+              />
+            </svg>
+            {task.status === 'done' ? 'Đã hoàn thành' : 'Đánh dấu hoàn thành'}
+          </button>
+        )}
+        {canManageTask && (
+          <button
+            className="btn-delete"
+            onClick={handleDelete}
+            disabled={actionLoading}
+          >
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+              <path
+                fillRule="evenodd"
+                d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Xóa
+          </button>
+        )}
       </div>
     </div>
   );

@@ -2,12 +2,20 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { workspaceAPI } from '../../services/api';
 import { WorkspaceMember } from '../../types';
+import UserAvatar from '../../components/common/UserAvatar';
 import './WorkspaceManagementPage.css';
 
 interface SecuritySettings {
   encryption: boolean;
   fileSharingLimits: boolean;
   autoDeleteHistory: boolean;
+}
+
+interface PickableUser {
+  id: string;
+  name: string;
+  email: string;
+  preferredLanguage?: string;
 }
 
 export default function WorkspaceManagementPage() {
@@ -36,6 +44,10 @@ export default function WorkspaceManagementPage() {
   const [newRole, setNewRole] = useState(3);
   const [newPermission, setNewPermission] = useState('read');
   const [adding, setAdding] = useState(false);
+  const [showUserPicker, setShowUserPicker] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState<PickableUser[]>([]);
+  const [loadingAvailable, setLoadingAvailable] = useState(false);
+  const [pickedUserId, setPickedUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -46,17 +58,51 @@ export default function WorkspaceManagementPage() {
     ])
       .then(([wsRes, memRes]) => {
         const wsList = wsRes.data.workspaces ?? wsRes.data;
-        const ws = wsList.find((w: any) => w.id === workspaceId);
-        if (ws) {
-          setName(ws.name || '');
-          setDepartment(ws.department || '');
-          setDescription(ws.description || '');
+        const ws = wsList.find((w: { id: string; roleId?: number }) => w.id === workspaceId);
+        if (!ws || ws.roleId !== 1) {
+          navigate('/workspaces', { replace: true });
+          return;
         }
+        setName(ws.name || '');
+        setDepartment(ws.department || '');
+        setDescription(ws.description || '');
         setMembers(memRes.data.members ?? memRes.data);
       })
       .catch(() => setError('Không thể tải dữ liệu workspace.'))
       .finally(() => setLoading(false));
-  }, [workspaceId]);
+  }, [workspaceId, navigate]);
+
+  useEffect(() => {
+    if (!showAddModal || !workspaceId) return;
+    setLoadingAvailable(true);
+    workspaceAPI
+      .getAvailableUsers(workspaceId)
+      .then((res) => setAvailableUsers(res.data.users ?? []))
+      .catch(() => setAvailableUsers([]))
+      .finally(() => setLoadingAvailable(false));
+  }, [showAddModal, workspaceId]);
+
+  const resetAddMemberForm = () => {
+    setNewEmail('');
+    setNewName('');
+    setNewLanguage('vi');
+    setNewRole(3);
+    setNewPermission('read');
+    setShowUserPicker(false);
+    setPickedUserId(null);
+  };
+
+  const openAddMemberModal = () => {
+    resetAddMemberForm();
+    setShowAddModal(true);
+  };
+
+  const handlePickUser = (u: PickableUser) => {
+    setPickedUserId(u.id);
+    setNewEmail(u.email);
+    setNewName(u.name);
+    setNewLanguage(u.preferredLanguage || 'vi');
+  };
 
   const handleSave = async () => {
     if (!workspaceId) return;
@@ -122,11 +168,7 @@ export default function WorkspaceManagementPage() {
       const res = await workspaceAPI.getMembers(workspaceId);
       setMembers(res.data.members ?? res.data);
       setShowAddModal(false);
-      setNewEmail('');
-      setNewName('');
-      setNewLanguage('vi');
-      setNewRole(3);
-      setNewPermission('read');
+      resetAddMemberForm();
     } catch {
       setError('Không thể thêm thành viên. Kiểm tra lại email.');
     } finally {
@@ -209,7 +251,7 @@ export default function WorkspaceManagementPage() {
           <h2 className="card-title">
             <i className="fas fa-users" /> Quản lý thành viên
           </h2>
-          <button className="btn-add-member" onClick={() => setShowAddModal(true)}>
+          <button className="btn-add-member" onClick={openAddMemberModal}>
             <i className="fas fa-plus" /> Thêm thành viên
           </button>
         </div>
@@ -230,11 +272,12 @@ export default function WorkspaceManagementPage() {
                 <tr key={m.id}>
                   <td>
                     <div className="member-cell">
-                      <div className="member-avatar">
-                        {m.user.name
-                          ? m.user.name.charAt(0).toUpperCase()
-                          : '?'}
-                      </div>
+                      <UserAvatar
+                        name={m.user.name}
+                        avatarUrl={m.user.avatarUrl}
+                        size="sm"
+                        className="member-avatar"
+                      />
                       <div>
                         <div className="member-name">{m.user.name}</div>
                         <div className="member-email">{m.user.email}</div>
@@ -354,15 +397,74 @@ export default function WorkspaceManagementPage() {
 
       {/* Add Member Modal */}
       {showAddModal && (
-        <div className="ws-modal-overlay" onClick={() => setShowAddModal(false)}>
-          <div className="ws-modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="ws-modal-overlay"
+          onClick={() => {
+            setShowAddModal(false);
+            resetAddMemberForm();
+          }}
+        >
+          <div className="ws-modal ws-modal-add-member" onClick={(e) => e.stopPropagation()}>
             <div className="ws-modal-header">
               <h2>Thêm thành viên</h2>
-              <button className="modal-close" onClick={() => setShowAddModal(false)}>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => {
+                  setShowAddModal(false);
+                  resetAddMemberForm();
+                }}
+              >
                 <i className="fas fa-times" />
               </button>
             </div>
             <form onSubmit={handleAddMember}>
+              <div className="quick-pick-block">
+                <button
+                  type="button"
+                  className="btn-quick-pick-toggle"
+                  onClick={() => setShowUserPicker((v) => !v)}
+                  aria-expanded={showUserPicker}
+                >
+                  <i className={`fas fa-chevron-${showUserPicker ? 'up' : 'down'}`} />
+                  Chọn nhanh từ hệ thống
+                  {availableUsers.length > 0 && (
+                    <span className="quick-pick-count">{availableUsers.length}</span>
+                  )}
+                </button>
+                {showUserPicker && (
+                  <div className="user-pick-list-wrap">
+                    {loadingAvailable ? (
+                      <p className="user-pick-hint">
+                        <i className="fas fa-spinner fa-spin" /> Đang tải danh sách...
+                      </p>
+                    ) : availableUsers.length === 0 ? (
+                      <p className="user-pick-hint">
+                        Tất cả tài khoản trong hệ thống đã có trong workspace này.
+                      </p>
+                    ) : (
+                      <ul className="user-pick-list" role="listbox" aria-label="Chọn thành viên">
+                        {availableUsers.map((u) => (
+                          <li key={u.id}>
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={pickedUserId === u.id}
+                              className={`user-pick-item${pickedUserId === u.id ? ' selected' : ''}`}
+                              onClick={() => handlePickUser(u)}
+                            >
+                              {u.name}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="form-divider">
+                <span>hoặc nhập thủ công</span>
+              </div>
               <div className="form-group">
                 <label htmlFor="mem-email">Email *</label>
                 <input
@@ -370,7 +472,10 @@ export default function WorkspaceManagementPage() {
                   type="email"
                   placeholder="email@company.com"
                   value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
+                  onChange={(e) => {
+                    setNewEmail(e.target.value);
+                    setPickedUserId(null);
+                  }}
                 />
               </div>
               <div className="form-group">
@@ -380,7 +485,10 @@ export default function WorkspaceManagementPage() {
                   type="text"
                   placeholder="Tên thành viên"
                   value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
+                  onChange={(e) => {
+                    setNewName(e.target.value);
+                    setPickedUserId(null);
+                  }}
                 />
               </div>
               <div className="form-row">
@@ -423,7 +531,14 @@ export default function WorkspaceManagementPage() {
                 </select>
               </div>
               <div className="modal-actions">
-                <button type="button" className="btn-cancel" onClick={() => setShowAddModal(false)}>
+                <button
+                  type="button"
+                  className="btn-cancel"
+                  onClick={() => {
+                    setShowAddModal(false);
+                    resetAddMemberForm();
+                  }}
+                >
                   Hủy
                 </button>
                 <button type="submit" className="btn-save" disabled={adding}>

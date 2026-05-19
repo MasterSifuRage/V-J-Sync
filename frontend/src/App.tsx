@@ -16,6 +16,9 @@ import ReminderDetailPage from './pages/reminders/ReminderDetailPage';
 import WorkspaceSelectPage from './pages/workspace/WorkspaceSelectPage';
 import WorkspaceManagementPage from './pages/workspace/WorkspaceManagementPage';
 import SettingsPage from './pages/settings/SettingsPage';
+import ProfilePage from './pages/profile/ProfilePage';
+import RequireTaskCreator from './components/auth/RequireTaskCreator';
+import RequireWorkspaceAdmin from './components/auth/RequireWorkspaceAdmin';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuthStore();
@@ -42,13 +45,14 @@ export default function App() {
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route path="/home" element={<HomePage />} />
         <Route path="/tasks" element={<TaskListPage />} />
-        <Route path="/tasks/create" element={<TaskCreatePage />} />
+        <Route path="/tasks/create" element={<RequireTaskCreator><TaskCreatePage /></RequireTaskCreator>} />
         <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
         <Route path="/reminders" element={<ReminderListPage />} />
         <Route path="/reminders/create" element={<ReminderCreatePage />} />
         <Route path="/reminders/:reminderId" element={<ReminderDetailPage />} />
         <Route path="/workspaces" element={<WorkspaceSelectPage />} />
-        <Route path="/workspaces/:workspaceId/manage" element={<WorkspaceManagementPage />} />
+        <Route path="/workspaces/:workspaceId/manage" element={<RequireWorkspaceAdmin><WorkspaceManagementPage /></RequireWorkspaceAdmin>} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
 

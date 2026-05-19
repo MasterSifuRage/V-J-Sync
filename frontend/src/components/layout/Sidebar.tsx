@@ -1,7 +1,12 @@
 import { NavLink } from 'react-router-dom';
+import { useWorkspaceStore } from '../../store/workspaceStore';
 import './Sidebar.css';
 
 export default function Sidebar() {
+  const { currentWorkspace } = useWorkspaceStore();
+  const roleId = currentWorkspace?.roleId;
+  const wsId = currentWorkspace?.id;
+
   return (
     <div className="sidebar">
       <div className="logo-container">
@@ -21,7 +26,19 @@ export default function Sidebar() {
         <NavLink to="/reminders" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <i className="fas fa-bell"></i> <span>Nhắc nhở</span>
         </NavLink>
-        <NavLink to="/workspaces" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+        {roleId === 1 && wsId && (
+          <NavLink
+            to={`/workspaces/${wsId}/manage`}
+            className={({ isActive }) => `nav-item nav-item-admin ${isActive ? 'active' : ''}`}
+          >
+            <i className="fas fa-user-shield"></i> <span>Quản trị WS</span>
+          </NavLink>
+        )}
+        <NavLink
+          to="/workspaces"
+          end
+          className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+        >
           <i className="fas fa-building"></i> <span>Workspace</span>
         </NavLink>
         <NavLink to="/settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>

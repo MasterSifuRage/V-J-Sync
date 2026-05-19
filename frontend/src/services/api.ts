@@ -48,6 +48,7 @@ export const workspaceAPI = {
   update: (id: string, data: any) => api.put(`/workspaces/${id}`, data),
   delete: (id: string) => api.delete(`/workspaces/${id}`),
   getMembers: (id: string) => api.get(`/workspaces/${id}/members`),
+  getAvailableUsers: (id: string) => api.get(`/workspaces/${id}/available-users`),
   addMember: (id: string, data: any) => api.post(`/workspaces/${id}/members`, data),
   updateMember: (wsId: string, userId: string, data: any) =>
     api.put(`/workspaces/${wsId}/members/${userId}`, data),
@@ -72,6 +73,10 @@ export const messageAPI = {
     api.get(`/messages/dm/${workspaceId}/${userId}?page=${page}`),
   sendDM: (workspaceId: string, userId: string, data: { content: string }) =>
     api.post(`/messages/dm/${workspaceId}/${userId}`, data),
+  getUnread: (workspaceId: string) => api.get(`/messages/unread/${workspaceId}`),
+  markChannelRead: (channelId: string) => api.post(`/messages/read/channel/${channelId}`),
+  markDmRead: (workspaceId: string, peerUserId: string) =>
+    api.post(`/messages/read/dm/${workspaceId}/${peerUserId}`),
 };
 
 // Task
@@ -108,6 +113,12 @@ export const aiAPI = {
     api.post('/ai/summarize', data),
   suggest: (data: { text: string; context?: string; targetLanguage?: string }) =>
     api.post('/ai/suggest', data),
+};
+
+// Dashboard
+export const dashboardAPI = {
+  getWorkspaceStats: (workspaceId: string) =>
+    api.get(`/dashboard/workspace/${workspaceId}`),
 };
 
 // Search

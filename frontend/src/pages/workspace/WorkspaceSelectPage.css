@@ -2,8 +2,6 @@
 
 .workspace-select-page {
   width: 100%;
-  max-width: none;
-  margin: 0;
 }
 
 /* Header */
@@ -97,10 +95,18 @@
   margin-bottom: 12px;
 }
 
+.ws-empty-hint {
+  font-size: 12px;
+  color: #64748b;
+  max-width: 320px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
 /* Grid */
 .ws-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 10px;
 }
 
@@ -109,7 +115,7 @@
   position: relative;
   background: var(--surface);
   border-radius: var(--radius);
-  padding: 14px 12px;
+  padding: 14px 12px 12px;
   box-shadow: var(--shadow-card);
   border: 1px solid var(--border-color);
   transition: border-color 0.12s, box-shadow 0.12s;
@@ -117,6 +123,8 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .ws-card:hover {
@@ -214,21 +222,44 @@
 /* Card Actions */
 .ws-card-actions {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.ws-card-actions-extra {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
   width: 100%;
 }
 
+.ws-card-actions-extra--two {
+  grid-template-columns: 1fr 1fr;
+}
+
+.btn-enter,
+.btn-manage {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .btn-enter {
-  flex: 1;
-  padding: 10px 16px;
+  padding: 8px 10px;
   background: var(--primary);
   color: #fff;
   border: none;
-  border-radius: 10px;
-  font-size: 13px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.12s;
 }
 
 .btn-enter:hover {
@@ -236,19 +267,30 @@
 }
 
 .btn-manage {
-  padding: 10px 16px;
+  padding: 8px 10px;
   background: #eff6ff;
   color: var(--primary);
-  border: none;
-  border-radius: 10px;
-  font-size: 13px;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.12s, border-color 0.12s;
 }
 
 .btn-manage:hover {
   background: #dbeafe;
+}
+
+.btn-manage-manager {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.btn-manage-manager:hover {
+  background: #fde68a;
+  border-color: #fcd34d;
 }
 
 /* ── Modal ── */
@@ -420,10 +462,6 @@
 
   .ws-grid {
     grid-template-columns: 1fr;
-  }
-
-  .ws-card-actions {
-    flex-direction: column;
   }
 
   .ws-modal {

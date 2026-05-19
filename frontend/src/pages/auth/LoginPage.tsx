@@ -141,6 +141,52 @@ export default function LoginPage() {
           Đăng nhập bằng Google
         </button>
 
+        <div className="login-demo-box">
+          <p className="login-demo-title">Tài khoản demo (sau khi chạy seed)</p>
+          <p className="login-demo-hint">Mật khẩu chung: <strong>vj123456</strong></p>
+          <ul className="login-demo-list">
+            <li>
+              <button
+                type="button"
+                className="login-demo-fill"
+                onClick={() => {
+                  setEmail('demo@vj.local');
+                  setPassword('vj123456');
+                }}
+              >
+                Nhân viên — demo@vj.local
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                className="login-demo-fill"
+                onClick={() => {
+                  setEmail('manager@vj.local');
+                  setPassword('vj123456');
+                }}
+              >
+                Quản lý — manager@vj.local
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                className="login-demo-fill"
+                onClick={() => {
+                  setEmail('admin@vj.local');
+                  setPassword('vj123456');
+                }}
+              >
+                Admin — admin@vj.local
+              </button>
+            </li>
+          </ul>
+          <p className="login-demo-note">
+            Chọn workspace <strong>V/J Sync Demo</strong>. Admin: Quản lý Workspace; Quản lý: Công việc; Nhân viên: chat/task cơ bản.
+          </p>
+        </div>
+
         <div className="login-footer">
           Chưa có tài khoản? <Link to="/register">Đăng ký ngay</Link>
         </div>

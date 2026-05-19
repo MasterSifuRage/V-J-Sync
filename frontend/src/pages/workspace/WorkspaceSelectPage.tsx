@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { workspaceAPI } from '../../services/api';
 import { Workspace } from '../../types';
+import { canCreateWorkspace, canCreateTask } from '../../lib/workspaceRole';
 import './WorkspaceSelectPage.css';
 
 export default function WorkspaceSelectPage() {
@@ -26,6 +27,8 @@ export default function WorkspaceSelectPage() {
     setCurrentWorkspace(ws);
     navigate('/home');
   };
+
+  const allowCreateWorkspace = canCreateWorkspace(workspaces);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,9 +69,11 @@ export default function WorkspaceSelectPage() {
           <h1>Workspace của bạn</h1>
           <p className="ws-subtitle">Chọn workspace để bắt đầu làm việc</p>
         </div>
-        <button className="btn-new-ws" onClick={() => setShowModal(true)}>
-          <i className="fas fa-plus" /> Tạo Workspace mới
-        </button>
+        {allowCreateWorkspace && (
+          <button className="btn-new-ws" onClick={() => setShowModal(true)}>
+            <i className="fas fa-plus" /> Tạo Workspace mới
+          </button>
+        )}
       </div>
 
       {error && <div className="ws-error">{error}</div>}
@@ -82,9 +87,15 @@ export default function WorkspaceSelectPage() {
         <div className="ws-empty">
           <i className="fas fa-building" />
           <p>Chưa có workspace nào.</p>
-          <button className="btn-new-ws" onClick={() => setShowModal(true)}>
-            Tạo Workspace đầu tiên
-          </button>
+          {allowCreateWorkspace ? (
+            <button className="btn-new-ws" onClick={() => setShowModal(true)}>
+              Tạo Workspace đầu tiên
+            </button>
+          ) : (
+            <p className="ws-empty-hint">
+              Liên hệ Giám đốc (Admin) để được mời vào workspace.
+            </p>
+          )}
         </div>
       ) : (
         <div className="ws-grid">
@@ -124,16 +135,37 @@ export default function WorkspaceSelectPage() {
                 )}
               </div>
               <div className="ws-card-actions">
-                <button className="btn-enter" onClick={() => handleEnter(ws)}>
+                <button type="button" className="btn-enter" onClick={() => handleEnter(ws)}>
                   Vào Workspace
                 </button>
-                {ws.roleId === 1 && (
-                  <button
-                    className="btn-manage"
-                    onClick={() => navigate(`/workspaces/${ws.id}/manage`)}
+                {(ws.roleId === 1 || (canCreateTask(ws.roleId) && ws.roleId === 2)) && (
+                  <div
+                    className={`ws-card-actions-extra ${
+                      ws.roleId === 1 ? 'ws-card-actions-extra--two' : ''
+                    }`}
                   >
-                    Quản lý Workspace
-                  </button>
+                    {ws.roleId === 1 && (
+                      <button
+                        type="button"
+                        className="btn-manage"
+                        onClick={() => navigate(`/workspaces/${ws.id}/manage`)}
+                      >
+                        Quản lý WS
+                      </button>
+                    )}
+                    {canCreateTask(ws.roleId) && (ws.roleId === 1 || ws.roleId === 2) && (
+                      <button
+                        type="button"
+                        className="btn-manage btn-manage-manager"
+                        onClick={() => {
+                          setCurrentWorkspace(ws);
+                          navigate('/tasks/create');
+                        }}
+                      >
+                        {ws.roleId === 1 ? 'Tạo công việc' : 'Giao việc'}
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

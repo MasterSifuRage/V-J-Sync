@@ -1,7 +1,6 @@
 .task-list-page {
   font-family: inherit;
   width: 100%;
-  max-width: none;
 }
 
 .task-list-header {
@@ -232,30 +231,20 @@
   color: #dc2626;
 }
 
-.task-card-avatars .avatar {
+.task-card-avatars .avatar.user-avatar {
   width: 22px;
   height: 22px;
   border-radius: var(--radius-sm);
   border: 1px solid #fff;
   margin-left: -5px;
-  background: #e0f2fe;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9px;
-  font-weight: 600;
-  color: #1e40af;
-  overflow: hidden;
 }
 
-.task-card-avatars .avatar:first-child {
+.task-card-avatars .avatar.user-avatar:first-child {
   margin-left: 0;
 }
 
-.task-card-avatars .avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.task-card-avatars .avatar .user-avatar__initials {
+  font-size: 9px;
 }
 
 .task-list-loading {
@@ -292,4 +281,196 @@
     min-width: 240px;
     width: 240px;
   }
+}
+
+/* —— Nhân viên: danh sách công việc được giao —— */
+.task-list-page--employee .task-list-header-left h1 {
+  font-size: 17px;
+}
+
+.task-employee-stats {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.task-employee-stat {
+  flex: 1;
+  min-width: 100px;
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  text-align: center;
+}
+
+.task-employee-stat-num {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.task-employee-stat-label {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.task-employee-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.task-filter-pill {
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--surface);
+  color: #64748b;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.task-filter-pill:hover {
+  border-color: #94a3b8;
+  color: #334155;
+}
+
+.task-filter-pill.active {
+  background: var(--primary);
+  border-color: var(--primary-dark);
+  color: #fff;
+}
+
+.task-my-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-my-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.task-my-row:hover {
+  border-color: #94a3b8;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.task-my-row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-my-status {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+}
+
+.task-my-status--todo {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.task-my-status--in_progress {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.task-my-status--review {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.task-my-status--done {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.task-my-title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.task-my-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.task-my-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.task-my-due.overdue {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.task-my-creator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-my-arrow {
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.task-my-empty {
+  text-align: center;
+  padding: 48px 24px;
+  background: var(--surface);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-sm);
+  color: #64748b;
+}
+
+.task-my-empty i {
+  font-size: 32px;
+  color: #cbd5e1;
+  margin-bottom: 12px;
+}
+
+.task-my-empty p {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.task-my-empty span {
+  font-size: 12px;
 }

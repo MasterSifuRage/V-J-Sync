@@ -25,6 +25,9 @@
   --shadow-topbar: 0 1px 0 rgba(0, 0, 0, 0.04);
   --font-table: 12px;
   --font-ui: 13px;
+  --content-max-width: min(1120px, 100%);
+  --content-max-width-wide: min(1280px, 100%);
+  --content-max-width-narrow: min(640px, 100%);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }

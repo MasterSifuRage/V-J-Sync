@@ -2,8 +2,6 @@
 
 .ws-manage-page {
   width: 100%;
-  max-width: none;
-  margin: 0;
 }
 
 /* Header */
@@ -269,17 +267,7 @@
   gap: 8px;
 }
 
-.member-avatar {
-  width: 26px;
-  height: 26px;
-  border-radius: var(--radius-sm);
-  background: var(--primary);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.member-cell .member-avatar.user-avatar {
   flex-shrink: 0;
 }
 
@@ -427,6 +415,43 @@
   padding: 20px;
 }
 
+.ws-modal.ws-modal-add-member {
+  max-width: 400px;
+  padding: 14px 16px 12px;
+}
+
+.ws-modal.ws-modal-add-member .ws-modal-header {
+  margin-bottom: 10px;
+}
+
+.ws-modal.ws-modal-add-member .ws-modal-header h2 {
+  font-size: 14px;
+}
+
+.ws-modal.ws-modal-add-member .form-group {
+  margin-bottom: 10px;
+}
+
+.ws-modal.ws-modal-add-member .form-group label {
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.ws-modal.ws-modal-add-member .form-group input,
+.ws-modal.ws-modal-add-member .form-group select {
+  padding: 5px 9px;
+  font-size: 12px;
+}
+
+.ws-modal.ws-modal-add-member .form-row {
+  gap: 10px;
+}
+
+.ws-modal.ws-modal-add-member .modal-actions {
+  margin-top: 4px;
+  padding-top: 10px;
+}
+
 .ws-modal {
   background: var(--surface);
   border-radius: var(--radius);
@@ -479,6 +504,118 @@
 
 .modal-close:hover {
   background: #e2e8f0;
+}
+
+/* Quick pick users from DB */
+.ws-modal-add-member .quick-pick-block {
+  margin-bottom: 0;
+}
+
+.btn-quick-pick-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px dashed var(--primary);
+  border-radius: var(--radius-sm);
+  background: #eff6ff;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  font-family: inherit;
+}
+
+.btn-quick-pick-toggle:hover {
+  background: #dbeafe;
+  border-color: var(--primary-dark);
+}
+
+.quick-pick-count {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-pick-list-wrap {
+  margin-top: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.user-pick-hint {
+  margin: 0;
+  padding: 10px 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.user-pick-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+}
+
+.user-pick-list li {
+  margin: 0;
+}
+
+.user-pick-item {
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1e293b;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  font-family: inherit;
+}
+
+.user-pick-item:hover {
+  background: #e2e8f0;
+}
+
+.user-pick-item.selected {
+  background: var(--primary);
+  color: #fff;
+}
+
+.ws-modal-add-member .form-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 10px;
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ws-modal-add-member .form-divider::before,
+.ws-modal-add-member .form-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
 }
 
 .ws-modal .form-group {

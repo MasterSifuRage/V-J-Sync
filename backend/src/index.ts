@@ -13,6 +13,7 @@ import { reminderRouter } from './routes/reminder.routes';
 import { aiRouter } from './routes/ai.routes';
 import { userRouter } from './routes/user.routes';
 import { searchRouter } from './routes/search.routes';
+import { dashboardRouter } from './routes/dashboard.routes';
 import { setupSocket } from './socket/chat.socket';
 import { errorHandler } from './middlewares/error.middleware';
 import { resolveLLM, readGeminiApiKey } from './services/llmChat';
@@ -71,6 +72,7 @@ app.use('/api/tasks', taskRouter);
 app.use('/api/reminders', reminderRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/search', searchRouter);
+app.use('/api/dashboard', dashboardRouter);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

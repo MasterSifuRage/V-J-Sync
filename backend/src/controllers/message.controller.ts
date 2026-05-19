@@ -2,6 +2,8 @@ import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { routeParam } from '../utils/routeParam';
+import { countUnreadForWorkspace, markChatRead } from '../utils/chatUnread';
+import { ensureChannelMemberOnChat } from '../utils/channelMembers';
 
 const prisma = new PrismaClient();
 
@@ -33,6 +35,7 @@ export const createMessage = async (req: AuthRequest, res: Response) => {
     data: { channelId, senderId: req.user!.id, content: content || '', parentId, fileUrl, fileName, fileType: fileType || 'text' },
     include: { sender: { select: { id: true, name: true, avatarUrl: true, preferredLanguage: true } } },
   });
+  await ensureChannelMemberOnChat(prisma, channelId, req.user!.id);
   return res.status(201).json({ message });
 };
 
@@ -68,4 +71,34 @@ export const createDM = async (req: AuthRequest, res: Response) => {
     include: { sender: { select: { id: true, name: true, avatarUrl: true, preferredLanguage: true } } },
   });
   return res.status(201).json({ message: dm });
+};
+
+export const getUnreadCounts = async (req: AuthRequest, res: Response) => {
+  const workspaceId = routeParam(req.params.workspaceId);
+  const userId = req.user!.id;
+  const unread = await countUnreadForWorkspace(userId, workspaceId);
+  return res.json(unread);
+};
+
+export const markChannelRead = async (req: AuthRequest, res: Response) => {
+  const channelId = routeParam(req.params.channelId);
+  const userId = req.user!.id;
+
+  const channel = await prisma.channel.findUnique({
+    where: { id: channelId },
+    select: { workspaceId: true },
+  });
+  if (!channel) return res.status(404).json({ error: 'Kênh không tồn tại.' });
+
+  await markChatRead(userId, channel.workspaceId, 'channel', channelId);
+  return res.json({ ok: true });
+};
+
+export const markDmRead = async (req: AuthRequest, res: Response) => {
+  const workspaceId = routeParam(req.params.workspaceId);
+  const peerUserId = routeParam(req.params.userId);
+  const userId = req.user!.id;
+
+  await markChatRead(userId, workspaceId, 'dm', peerUserId);
+  return res.json({ ok: true });
 };

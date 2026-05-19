@@ -159,24 +159,9 @@
   gap: 8px;
 }
 
-.meta-user .avatar-sm {
-  width: 28px;
-  height: 28px;
+.meta-user .avatar-sm.user-avatar {
   border-radius: 50%;
-  background: #e0f2fe;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 600;
-  color: #1e40af;
-  overflow: hidden;
-}
-
-.meta-user .avatar-sm img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .meta-tags {
@@ -229,25 +214,9 @@
   gap: 12px;
 }
 
-.comment-avatar {
-  width: 36px;
-  height: 36px;
+.comment-avatar.user-avatar {
   border-radius: 50%;
-  background: #e0f2fe;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 600;
-  color: #1e40af;
   flex-shrink: 0;
-  overflow: hidden;
-}
-
-.comment-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .comment-body {
@@ -401,6 +370,27 @@
   padding: 80px 0;
   font-size: 15px;
   color: #64748b;
+}
+
+.task-employee-status-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 200px;
+}
+
+.task-employee-status-form label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.task-employee-status-form select {
+  padding: 10px 12px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: var(--radius-sm, 6px);
+  font-size: 13px;
+  background: #fff;
 }
 
 @media (max-width: 640px) {

@@ -31,6 +31,7 @@ model User {
   createdReminders  Reminder[]        @relation("ReminderCreator")
   targetReminders   Reminder[]        @relation("ReminderTarget")
   createdChannels   Channel[]         @relation("ChannelCreator")
+  chatReadStates    ChatReadState[]
 }
 
 model Workspace {
@@ -123,6 +124,21 @@ model DirectMessage {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   sender    User      @relation("DMSender", fields: [senderId], references: [id])
   receiver  User      @relation("DMReceiver", fields: [receiverId], references: [id])
+}
+
+/** Lần đọc cuối theo kênh hoặc DM (targetId = channelId hoặc userId đối phương) */
+model ChatReadState {
+  id          String   @id @default(uuid())
+  userId      String
+  workspaceId String
+  targetType  String   // "channel" | "dm"
+  targetId    String
+  lastReadAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId, targetType, targetId])
+  @@index([userId, workspaceId])
 }
 
 model Task {

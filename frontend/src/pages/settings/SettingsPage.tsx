@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { userAPI } from '../../services/api';
 import { getTranslateTarget, setTranslateTarget, type TranslateTargetLang } from '../../lib/translateTarget';
+import UserAvatar from '../../components/common/UserAvatar';
 import './SettingsPage.css';
 
 type ModalState =
@@ -91,15 +92,6 @@ export default function SettingsPage() {
   );
 
   const hasUnsavedChanges = profileDirty || togglesDirty || translateDirty;
-
-  const initials = name
-    ? name
-        .split(' ')
-        .map((w) => w[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase()
-    : '?';
 
   const resetFormFromBaseline = () => {
     if (!user) return;
@@ -203,13 +195,12 @@ export default function SettingsPage() {
         </h2>
         <div className="profile-section">
           <div className="avatar-wrapper">
-            <div className="avatar-circle">
-              {user?.avatarUrl ? (
-                <img src={user.avatarUrl} alt={name} />
-              ) : (
-                <span>{initials}</span>
-              )}
-            </div>
+            <UserAvatar
+              name={name || user?.name}
+              avatarUrl={user?.avatarUrl}
+              size="lg"
+              className="avatar-circle"
+            />
             <button type="button" className="avatar-edit" title="Đổi ảnh đại diện">
               <i className="fas fa-camera" />
             </button>
