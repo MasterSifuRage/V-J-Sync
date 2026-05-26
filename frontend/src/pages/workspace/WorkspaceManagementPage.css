@@ -282,6 +282,21 @@
   color: var(--text-muted);
 }
 
+.member-lang-display {
+  display: inline-block;
+  padding: 4px 8px;
+  font-size: var(--font-table);
+  font-weight: 500;
+  color: #334155;
+  background: #f1f5f9;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.member-lang-display--form {
+  margin: 0;
+}
+
 /* Table selects */
 .members-table select {
   padding: 3px 6px;

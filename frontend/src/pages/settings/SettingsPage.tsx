@@ -1,7 +1,10 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
 import { userAPI } from '../../services/api';
-import { getTranslateTarget, setTranslateTarget, type TranslateTargetLang } from '../../lib/translateTarget';
+import { getTranslateTarget, setTranslateTarget, normalizeTranslateTarget, type TranslateTargetLang } from '../../lib/translateTarget';
+import { normalizeUILanguage, type UILanguage } from '../../lib/uiLanguage';
+import { applyUILanguage } from '../../i18n';
 import UserAvatar from '../../components/common/UserAvatar';
 import './SettingsPage.css';
 
@@ -13,20 +16,15 @@ type ModalState =
       message: string;
     };
 
-function translateLangLabel(v: TranslateTargetLang): string {
-  if (v === 'ja') return '日本語';
-  if (v === 'en') return 'English';
-  return 'Tiếng Việt';
-}
-
 export default function SettingsPage() {
+  const { t } = useTranslation();
   const { user, setUser } = useAuthStore();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [department, setDepartment] = useState('');
-  const [preferredLanguage, setPreferredLanguage] = useState('vi');
-  const [translateLanguage, setTranslateLanguage] = useState<TranslateTargetLang>(() => getTranslateTarget());
+  const [preferredLanguage, setPreferredLanguage] = useState<UILanguage>('vi');
+  const [translateLanguage, setTranslateLanguage] = useState<TranslateTargetLang>('ja');
   const [autoTranslate, setAutoTranslate] = useState(true);
   const [aiGrammar, setAiGrammar] = useState(false);
   const [notifyMessages, setNotifyMessages] = useState(true);
@@ -35,8 +33,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [modal, setModal] = useState<ModalState>(null);
 
-  /** Giá trị “đã lưu / khi mở trang” để Hủy và Kiểm tra thay đổi */
-  const translateBaseline = useRef<TranslateTargetLang>(getTranslateTarget());
+  const translateBaseline = useRef<TranslateTargetLang>('ja');
   const togglesBaseline = useRef({
     autoTranslate: true,
     aiGrammar: false,
@@ -45,10 +42,19 @@ export default function SettingsPage() {
     notifySound: true,
   });
 
+  const translateLangLabel = (v: TranslateTargetLang) =>
+    v === 'ja' ? t('settings.langJa') : t('settings.langVi');
+
   useEffect(() => {
-    const t = getTranslateTarget();
-    translateBaseline.current = t;
-    setTranslateLanguage(t);
+    if (!user) return;
+    setName(user.name || '');
+    setPhone(user.phone || '');
+    setDepartment(user.department || '');
+    setPreferredLanguage(normalizeUILanguage(user.preferredLanguage));
+    const tr = normalizeTranslateTarget(user.translateToLanguage ?? getTranslateTarget(user.id));
+    setTranslateTarget(user.id, tr);
+    translateBaseline.current = tr;
+    setTranslateLanguage(tr);
     togglesBaseline.current = {
       autoTranslate: true,
       aiGrammar: false,
@@ -56,14 +62,6 @@ export default function SettingsPage() {
       notifyReminders: true,
       notifySound: true,
     };
-  }, []);
-
-  useEffect(() => {
-    if (!user) return;
-    setName(user.name || '');
-    setPhone(user.phone || '');
-    setDepartment(user.department || '');
-    setPreferredLanguage(user.preferredLanguage || 'vi');
   }, [user]);
 
   const profileDirty = useMemo(
@@ -72,7 +70,7 @@ export default function SettingsPage() {
       (name.trim() !== (user.name || '') ||
         phone.trim() !== (user.phone || '') ||
         department.trim() !== (user.department || '') ||
-        preferredLanguage !== (user.preferredLanguage || 'vi')),
+        preferredLanguage !== normalizeUILanguage(user.preferredLanguage)),
     [user, name, phone, department, preferredLanguage],
   );
 
@@ -98,16 +96,24 @@ export default function SettingsPage() {
     setName(user.name || '');
     setPhone(user.phone || '');
     setDepartment(user.department || '');
-    setPreferredLanguage(user.preferredLanguage || 'vi');
+    const lang = normalizeUILanguage(user.preferredLanguage);
+    setPreferredLanguage(lang);
+    void applyUILanguage(lang);
     const t0 = translateBaseline.current;
     setTranslateLanguage(t0);
-    setTranslateTarget(t0);
+    if (user) setTranslateTarget(user.id, t0);
     const tb = togglesBaseline.current;
     setAutoTranslate(tb.autoTranslate);
     setAiGrammar(tb.aiGrammar);
     setNotifyMessages(tb.notifyMessages);
     setNotifyReminders(tb.notifyReminders);
     setNotifySound(tb.notifySound);
+  };
+
+  const handleUILanguageChange = (v: string) => {
+    const lang = normalizeUILanguage(v);
+    setPreferredLanguage(lang);
+    void applyUILanguage(lang);
   };
 
   const handleSave = async () => {
@@ -118,8 +124,13 @@ export default function SettingsPage() {
         phone: phone.trim() || undefined,
         department: department.trim() || undefined,
         preferredLanguage,
+        translateToLanguage: translateLanguage,
       });
-      setUser(res.data.user ?? res.data);
+      const updated = res.data.user ?? res.data;
+      setUser(updated);
+      if (updated.id) {
+        setTranslateTarget(updated.id, normalizeTranslateTarget(updated.translateToLanguage));
+      }
       togglesBaseline.current = {
         autoTranslate,
         aiGrammar,
@@ -127,18 +138,18 @@ export default function SettingsPage() {
         notifyReminders,
         notifySound,
       };
-      translateBaseline.current = getTranslateTarget();
+      translateBaseline.current = normalizeTranslateTarget(updated.translateToLanguage);
+      setTranslateLanguage(translateBaseline.current);
       setModal({
         type: 'success',
-        title: 'Đã lưu',
-        message:
-          'Hồ sơ đã được lưu trên máy chủ. Ngôn ngữ dịch và các công tắc trên trang được coi là đã đồng bộ với phiên làm việc hiện tại.',
+        title: t('settings.savedTitle'),
+        message: t('settings.savedMessage'),
       });
     } catch {
       setModal({
         type: 'error',
-        title: 'Lưu thất bại',
-        message: 'Không thể lưu thay đổi. Kiểm tra kết nối và thử lại.',
+        title: t('settings.saveErrorTitle'),
+        message: t('settings.saveErrorMessage'),
       });
     } finally {
       setSaving(false);
@@ -149,16 +160,15 @@ export default function SettingsPage() {
     if (hasUnsavedChanges) {
       setModal({
         type: 'confirm-cancel',
-        title: 'Hủy thay đổi?',
-        message:
-          'Có thay đổi chưa lưu (hồ sơ, thông báo, hoặc ngôn ngữ dịch). Bạn có chắc muốn hoàn tác và khôi phục như lúc mở trang / sau lần lưu gần nhất?',
+        title: t('settings.cancelConfirmTitle'),
+        message: t('settings.cancelConfirmMessage'),
       });
       return;
     }
     setModal({
       type: 'info',
-      title: 'Thông báo',
-      message: 'Không có thay đổi nào để hủy.',
+      title: t('settings.noChangesTitle'),
+      message: t('settings.noChangesMessage'),
     });
   };
 
@@ -166,32 +176,55 @@ export default function SettingsPage() {
     resetFormFromBaseline();
     setModal({
       type: 'info',
-      title: 'Đã hoàn tác',
-      message: 'Các thay đổi đã được khôi phục về trạng thái trước đó.',
+      title: t('settings.discardedTitle'),
+      message: t('settings.discardedMessage'),
     });
   };
 
-  const onTranslateChange = (v: TranslateTargetLang) => {
+  const onTranslateChange = async (v: TranslateTargetLang) => {
+    if (!user) return;
     setTranslateLanguage(v);
-    setTranslateTarget(v);
-    setModal({
-      type: 'info',
-      title: 'Đã cập nhật',
-      message: `Ngôn ngữ dịch sang: ${translateLangLabel(v)} (lưu trên trình duyệt; áp dụng ngay trong chat).`,
-    });
+    setTranslateTarget(user.id, v);
+    try {
+      const res = await userAPI.updateProfile({ translateToLanguage: v });
+      const updated = res.data.user ?? res.data;
+      setUser(updated);
+      translateBaseline.current = v;
+      setModal({
+        type: 'info',
+        title: t('settings.translateUpdatedTitle'),
+        message: t('settings.translateUpdatedMessage', { lang: translateLangLabel(v) }),
+      });
+    } catch {
+      const rollback = translateBaseline.current;
+      setTranslateLanguage(rollback);
+      setTranslateTarget(user.id, rollback);
+      setModal({
+        type: 'error',
+        title: t('settings.saveErrorTitle'),
+        message: t('settings.saveErrorMessage'),
+      });
+    }
   };
+
+  const modalTitle =
+    modal?.title ??
+    (modal?.type === 'success'
+      ? t('settings.success')
+      : modal?.type === 'error'
+        ? t('settings.error')
+        : t('settings.notice'));
 
   return (
     <div className="settings-page">
       <div className="settings-header">
-        <h1>Cài đặt</h1>
-        <p className="settings-subtitle">Quản lý hồ sơ và tùy chọn cá nhân</p>
+        <h1>{t('settings.title')}</h1>
+        <p className="settings-subtitle">{t('settings.subtitle')}</p>
       </div>
 
-      {/* Card 1: Profile */}
       <div className="settings-card">
         <h2 className="card-title">
-          <i className="fas fa-user-circle" /> Hồ sơ cá nhân
+          <i className="fas fa-user-circle" /> {t('settings.profile')}
         </h2>
         <div className="profile-section">
           <div className="avatar-wrapper">
@@ -201,33 +234,33 @@ export default function SettingsPage() {
               size="lg"
               className="avatar-circle"
             />
-            <button type="button" className="avatar-edit" title="Đổi ảnh đại diện">
+            <button type="button" className="avatar-edit" title={t('settings.changeAvatar')}>
               <i className="fas fa-camera" />
             </button>
           </div>
           <div className="profile-grid">
             <div className="form-group">
-              <label htmlFor="s-name">Họ và tên</label>
+              <label htmlFor="s-name">{t('settings.fullName')}</label>
               <input
                 id="s-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Họ và tên"
+                placeholder={t('settings.fullName')}
               />
             </div>
             <div className="form-group">
-              <label htmlFor="s-phone">Số điện thoại</label>
+              <label htmlFor="s-phone">{t('settings.phone')}</label>
               <input
                 id="s-phone"
                 type="text"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="Số điện thoại"
+                placeholder={t('settings.phone')}
               />
             </div>
             <div className="form-group">
-              <label htmlFor="s-role">Vai trò</label>
+              <label htmlFor="s-role">{t('settings.role')}</label>
               <input
                 id="s-role"
                 type="text"
@@ -237,55 +270,52 @@ export default function SettingsPage() {
               />
             </div>
             <div className="form-group">
-              <label htmlFor="s-dept">Phòng ban</label>
+              <label htmlFor="s-dept">{t('settings.department')}</label>
               <input
                 id="s-dept"
                 type="text"
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
-                placeholder="Phòng ban"
+                placeholder={t('settings.department')}
               />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Card 2: Language */}
       <div className="settings-card">
         <h2 className="card-title">
-          <i className="fas fa-language" /> Ngôn ngữ & Dịch thuật
+          <i className="fas fa-language" /> {t('settings.languageSection')}
         </h2>
         <div className="language-grid">
           <div className="form-group">
-            <label htmlFor="s-lang">Ngôn ngữ giao diện</label>
+            <label htmlFor="s-lang">{t('settings.uiLanguage')}</label>
             <select
               id="s-lang"
               value={preferredLanguage}
-              onChange={(e) => setPreferredLanguage(e.target.value)}
+              onChange={(e) => handleUILanguageChange(e.target.value)}
             >
-              <option value="vi">Tiếng Việt</option>
-              <option value="ja">日本語</option>
-              <option value="en">English</option>
+              <option value="vi">{t('settings.langVi')}</option>
+              <option value="ja">{t('settings.langJa')}</option>
             </select>
           </div>
           <div className="form-group">
-            <label htmlFor="s-translate">Ngôn ngữ dịch sang</label>
+            <label htmlFor="s-translate">{t('settings.translateTo')}</label>
             <select
               id="s-translate"
               value={translateLanguage}
               onChange={(e) => onTranslateChange(e.target.value as TranslateTargetLang)}
             >
-              <option value="ja">日本語</option>
-              <option value="vi">Tiếng Việt</option>
-              <option value="en">English</option>
+              <option value="ja">{t('settings.langJa')}</option>
+              <option value="vi">{t('settings.langVi')}</option>
             </select>
           </div>
         </div>
         <div className="toggle-list">
           <div className="toggle-item">
             <div>
-              <span className="toggle-label">Tự động dịch tin nhắn</span>
-              <span className="toggle-desc">Dịch tự động khi nhận tin nhắn</span>
+              <span className="toggle-label">{t('settings.autoTranslate')}</span>
+              <span className="toggle-desc">{t('settings.autoTranslateDesc')}</span>
             </div>
             <label className="toggle-switch">
               <input
@@ -298,8 +328,8 @@ export default function SettingsPage() {
           </div>
           <div className="toggle-item">
             <div>
-              <span className="toggle-label">Kiểm tra ngữ pháp AI</span>
-              <span className="toggle-desc">AI tự động kiểm tra và gợi ý sửa ngữ pháp</span>
+              <span className="toggle-label">{t('settings.aiGrammar')}</span>
+              <span className="toggle-desc">{t('settings.aiGrammarDesc')}</span>
             </div>
             <label className="toggle-switch">
               <input
@@ -313,16 +343,15 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Card 3: Notifications */}
       <div className="settings-card">
         <h2 className="card-title">
-          <i className="fas fa-bell" /> Thông báo
+          <i className="fas fa-bell" /> {t('settings.notifications')}
         </h2>
         <div className="toggle-list">
           <div className="toggle-item">
             <div>
-              <span className="toggle-label">Tin nhắn mới</span>
-              <span className="toggle-desc">Nhận thông báo khi có tin nhắn mới</span>
+              <span className="toggle-label">{t('settings.notifyMessages')}</span>
+              <span className="toggle-desc">{t('settings.notifyMessagesDesc')}</span>
             </div>
             <label className="toggle-switch">
               <input
@@ -335,8 +364,8 @@ export default function SettingsPage() {
           </div>
           <div className="toggle-item">
             <div>
-              <span className="toggle-label">Nhắc nhở công việc</span>
-              <span className="toggle-desc">Nhận thông báo nhắc nhở task và deadline</span>
+              <span className="toggle-label">{t('settings.notifyReminders')}</span>
+              <span className="toggle-desc">{t('settings.notifyRemindersDesc')}</span>
             </div>
             <label className="toggle-switch">
               <input
@@ -349,8 +378,8 @@ export default function SettingsPage() {
           </div>
           <div className="toggle-item">
             <div>
-              <span className="toggle-label">Âm thanh thông báo</span>
-              <span className="toggle-desc">Phát âm thanh khi nhận thông báo</span>
+              <span className="toggle-label">{t('settings.notifySound')}</span>
+              <span className="toggle-desc">{t('settings.notifySoundDesc')}</span>
             </div>
             <label className="toggle-switch">
               <input
@@ -366,10 +395,10 @@ export default function SettingsPage() {
 
       <div className="settings-footer">
         <button type="button" className="btn-cancel" onClick={handleCancelClick}>
-          Hủy
+          {t('settings.cancel')}
         </button>
         <button type="button" className="btn-save-all" onClick={handleSave} disabled={saving}>
-          {saving ? 'Đang lưu...' : 'Lưu tất cả thay đổi'}
+          {saving ? t('settings.saving') : t('settings.saveAll')}
         </button>
       </div>
 
@@ -387,23 +416,22 @@ export default function SettingsPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="settings-modal-title" className="settings-modal-title">
-              {modal.title ||
-                (modal.type === 'success' ? 'Thành công' : modal.type === 'error' ? 'Lỗi' : 'Thông báo')}
+              {modalTitle}
             </h3>
             <p className="settings-modal-message">{modal.message}</p>
             <div className="settings-modal-actions">
               {modal.type === 'confirm-cancel' ? (
                 <>
                   <button type="button" className="settings-modal-btn secondary" onClick={() => setModal(null)}>
-                    Tiếp tục chỉnh sửa
+                    {t('settings.continueEdit')}
                   </button>
                   <button type="button" className="settings-modal-btn danger" onClick={confirmDiscard}>
-                    Hủy thay đổi
+                    {t('settings.confirmDiscard')}
                   </button>
                 </>
               ) : (
                 <button type="button" className="settings-modal-btn primary" onClick={() => setModal(null)}>
-                  Đóng
+                  {t('settings.close')}
                 </button>
               )}
             </div>

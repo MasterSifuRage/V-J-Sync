@@ -1,33 +1,23 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/auth.middleware';
-import { llmGenerateText, resolveLLM } from '../services/llmChat';
+import { isAiConfigured, langLabel, LangCode } from '../services/aiConfig';
+import { llmGenerateText } from '../services/llmChat';
+import { summarizeText } from '../services/summarizeService';
+import { translateWithCache } from '../services/translateService';
 import { respondLLMFailure } from '../utils/llmHttpError';
 
 const AI_DISABLED = {
   error:
-    'Chức năng AI chưa được cấu hình. Trong backend/.env: đặt GEMINI_API_KEY (Google AI Studio), hoặc OPENAI_API_KEY dạng sk-... (không dùng AIza ở đây). Có thể thêm AI_PROVIDER=gemini để chỉ dùng Gemini. Khởi động lại server sau khi sửa.',
+    'Chức năng AI chưa được cấu hình. Trong backend/.env: AI_PROVIDER=ollama + OLLAMA_BASE_URL, hoặc TRANSLATE_PROVIDER=deepl/google, SUMMARIZE_PROVIDER=ollama. Khởi động lại server sau khi sửa.',
 };
-
-type LangCode = 'vi' | 'ja' | 'en';
 
 function clampLang(v: unknown, fallback: LangCode): LangCode {
   if (v === 'vi' || v === 'ja' || v === 'en') return v;
   return fallback;
 }
 
-function langLabel(l: LangCode): string {
-  switch (l) {
-    case 'ja':
-      return 'tiếng Nhật';
-    case 'en':
-      return 'tiếng Anh';
-    default:
-      return 'tiếng Việt';
-  }
-}
-
 export const translate = async (req: AuthRequest, res: Response) => {
-  if (!resolveLLM()) return res.status(503).json(AI_DISABLED);
+  if (!isAiConfigured()) return res.status(503).json(AI_DISABLED);
 
   const { text, from, to, senderRole, receiverRole } = req.body;
   if (!text) return res.status(400).json({ error: 'Vui lòng nhập nội dung cần dịch.' });
@@ -39,21 +29,13 @@ export const translate = async (req: AuthRequest, res: Response) => {
     return res.json({ translated: String(text) });
   }
 
-  const systemPrompt = `Bạn là trợ lý dịch thuật chuyên nghiệp trong môi trường công sở (Việt–Nhật–Anh).
-Quy tắc:
-- Dịch chính xác từ ${langLabel(sourceLang)} sang ${langLabel(targetLang)}
-- Giữ nguyên thuật ngữ chuyên ngành IT/kinh doanh
-- ${senderRole && receiverRole ? `Người gửi có vai trò: ${senderRole}, người nhận: ${receiverRole}. Điều chỉnh mức độ kính ngữ phù hợp.` : 'Sử dụng ngôn ngữ lịch sự, chuyên nghiệp.'}
-- CHỈ trả về bản dịch, không giải thích thêm.`;
+  const roleHint =
+    senderRole && receiverRole
+      ? `Người gửi: ${senderRole}, người nhận: ${receiverRole} — điều chỉnh kính ngữ phù hợp.`
+      : undefined;
 
   try {
-    const out = await llmGenerateText({
-      system: systemPrompt,
-      user: String(text),
-      label: 'translate',
-      temperature: 0.3,
-      maxTokens: 2000,
-    });
+    const out = await translateWithCache(String(text), sourceLang, targetLang, roleHint);
     return res.json({ translated: out });
   } catch (err) {
     return respondLLMFailure(res, err, 'Lỗi dịch thuật. Vui lòng thử lại.');
@@ -61,7 +43,7 @@ Quy tắc:
 };
 
 export const decodeIntent = async (req: AuthRequest, res: Response) => {
-  if (!resolveLLM()) return res.status(503).json(AI_DISABLED);
+  if (!isAiConfigured()) return res.status(503).json(AI_DISABLED);
 
   const { text, language } = req.body;
   if (!text) return res.status(400).json({ error: 'Vui lòng nhập nội dung cần phân tích.' });
@@ -90,26 +72,21 @@ Trả lời bằng tiếng Việt, ngắn gọn và thực tiễn.`;
 };
 
 export const summarize = async (req: AuthRequest, res: Response) => {
-  if (!resolveLLM()) return res.status(503).json(AI_DISABLED);
+  if (!isAiConfigured()) return res.status(503).json(AI_DISABLED);
 
-  const { messages, type } = req.body;
-  if (!messages || !messages.length) return res.status(400).json({ error: 'Không có nội dung để tóm tắt.' });
-
+  const { messages, type, text } = req.body;
   const contentType = type === 'task' ? 'công việc' : type === 'reminder' ? 'nhắc nhở' : 'đoạn chat';
-  const content = Array.isArray(messages)
-    ? messages.map((m: any) => `${m.sender || 'User'}: ${m.content}`).join('\n')
-    : String(messages);
-
-  const system = `Tóm tắt ngắn gọn nội dung ${contentType} sau bằng tiếng Việt. Nêu rõ các điểm chính, quyết định quan trọng và action items (nếu có). Tối đa 5 bullet points.`;
+  const content =
+    typeof text === 'string' && text.trim()
+      ? text.trim()
+      : Array.isArray(messages) && messages.length
+        ? messages.map((m: { sender?: string; content?: string }) => `${m.sender || 'User'}: ${m.content}`).join('\n')
+        : '';
+  if (!content) return res.status(400).json({ error: 'Không có nội dung để tóm tắt.' });
 
   try {
-    const out = await llmGenerateText({
-      system,
-      user: content,
-      label: 'summarize',
-      temperature: 0.3,
-      maxTokens: 500,
-    });
+    const out = await summarizeText(content, { contentType });
+    if (!out) return res.status(503).json({ error: 'Không thể tóm tắt. Kiểm tra Ollama hoặc cấu hình SUMMARIZE_PROVIDER.' });
     return res.json({ summary: out });
   } catch (err) {
     return respondLLMFailure(res, err, 'Lỗi tóm tắt. Vui lòng thử lại.');
@@ -117,14 +94,14 @@ export const summarize = async (req: AuthRequest, res: Response) => {
 };
 
 export const suggest = async (req: AuthRequest, res: Response) => {
-  if (!resolveLLM()) return res.status(503).json(AI_DISABLED);
+  if (!isAiConfigured()) return res.status(503).json(AI_DISABLED);
 
   const { text, context, targetLanguage } = req.body;
   if (!text) return res.status(400).json({ error: 'Vui lòng nhập nội dung.' });
 
   const system = `Bạn là trợ lý viết tin nhắn chuyên nghiệp trong môi trường công sở Việt-Nhật.
 Gợi ý 2-3 cách diễn đạt lịch sự, chuyên nghiệp hơn cho tin nhắn sau.
-${targetLanguage ? `Ngôn ngữ đích: ${targetLanguage === 'ja' ? 'tiếng Nhật' : 'tiếng Việt'}` : ''}
+${targetLanguage ? `Ngôn ngữ đích: ${targetLanguage === 'ja' ? langLabel('ja') : langLabel('vi')}` : ''}
 ${context ? `Ngữ cảnh: ${context}` : ''}
 Trả về dạng danh sách đánh số.`;
 

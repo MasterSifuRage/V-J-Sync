@@ -8,6 +8,7 @@ import {
   getUnreadCounts,
   markChannelRead,
   markDmRead,
+  updateMessageState,
 } from '../controllers/message.controller';
 import { requireWorkspaceMember } from '../middlewares/rbac.middleware';
 
@@ -23,3 +24,4 @@ messageRouter.get('/channel/:channelId', getMessages);
 messageRouter.post('/channel/:channelId', createMessage);
 messageRouter.get('/dm/:workspaceId/:userId', getDMs);
 messageRouter.post('/dm/:workspaceId/:userId', createDM);
+messageRouter.patch('/state/:targetType/:targetId', updateMessageState);

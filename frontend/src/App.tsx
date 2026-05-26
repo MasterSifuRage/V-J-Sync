@@ -11,7 +11,7 @@ import TaskListPage from './pages/tasks/TaskListPage';
 import TaskCreatePage from './pages/tasks/TaskCreatePage';
 import TaskDetailPage from './pages/tasks/TaskDetailPage';
 import ReminderListPage from './pages/reminders/ReminderListPage';
-import ReminderCreatePage from './pages/reminders/ReminderCreatePage';
+import ReminderFormPage from './pages/reminders/ReminderFormPage';
 import ReminderDetailPage from './pages/reminders/ReminderDetailPage';
 import WorkspaceSelectPage from './pages/workspace/WorkspaceSelectPage';
 import WorkspaceManagementPage from './pages/workspace/WorkspaceManagementPage';
@@ -48,7 +48,8 @@ export default function App() {
         <Route path="/tasks/create" element={<RequireTaskCreator><TaskCreatePage /></RequireTaskCreator>} />
         <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
         <Route path="/reminders" element={<ReminderListPage />} />
-        <Route path="/reminders/create" element={<ReminderCreatePage />} />
+        <Route path="/reminders/create" element={<ReminderFormPage />} />
+        <Route path="/reminders/:reminderId/edit" element={<ReminderFormPage />} />
         <Route path="/reminders/:reminderId" element={<ReminderDetailPage />} />
         <Route path="/workspaces" element={<WorkspaceSelectPage />} />
         <Route path="/workspaces/:workspaceId/manage" element={<RequireWorkspaceAdmin><WorkspaceManagementPage /></RequireWorkspaceAdmin>} />

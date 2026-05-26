@@ -15,33 +15,29 @@ import { userRouter } from './routes/user.routes';
 import { searchRouter } from './routes/search.routes';
 import { dashboardRouter } from './routes/dashboard.routes';
 import { setupSocket } from './socket/chat.socket';
+import { setSocketIo } from './socket/ioInstance';
 import { errorHandler } from './middlewares/error.middleware';
-import { resolveLLM, readGeminiApiKey } from './services/llmChat';
+import {
+  isAiConfigured,
+  ollamaBaseUrl,
+  ollamaModel,
+  resolveSummarizeProvider,
+  resolveTranslateProvider,
+} from './services/aiConfig';
 
 dotenv.config();
 
-const llm = resolveLLM();
-if (llm) console.log(`[V/J Sync] AI provider: ${llm}`);
-else console.warn('[V/J Sync] Chưa cấu hình AI — thêm GEMINI_API_KEY hoặc OPENAI_API_KEY (sk-...) trong backend/.env');
-
-if (llm === 'openai') {
-  const geminiOk = readGeminiApiKey();
-  if (!geminiOk) {
-    const raw = (process.env.GEMINI_API_KEY ?? '').trim();
-    if (raw.includes('your-google-ai-studio')) {
-      console.warn(
-        '[V/J Sync] GEMINI_API_KEY vẫn là placeholder từ .env.example. Thay bằng key thật (AIza...) từ https://aistudio.google.com/apikey rồi restart.',
-      );
-    } else if (raw && !raw.replace(/^["']|["']$/g, '').trim().startsWith('AIza')) {
-      console.warn(
-        '[V/J Sync] GEMINI_API_KEY có vẻ sai định dạng — key Google AI Studio thường bắt đầu bằng AIza.',
-      );
-    } else if (!raw) {
-      console.warn(
-        '[V/J Sync] Chưa có GEMINI_API_KEY hợp lệ — đang dùng OpenAI. Thêm vào backend/.env: GEMINI_API_KEY=AIza... hoặc AI_PROVIDER=gemini cùng key.',
-      );
-    }
+if (isAiConfigured()) {
+  console.log(
+    `[V/J Sync] AI — tóm tắt: ${resolveSummarizeProvider() ?? '—'}, dịch: ${resolveTranslateProvider() ?? '—'}`,
+  );
+  if (resolveSummarizeProvider() === 'ollama' || resolveTranslateProvider() === 'ollama') {
+    console.log(`[V/J Sync] Ollama ${ollamaBaseUrl()} model=${ollamaModel()}`);
   }
+} else {
+  console.warn(
+    '[V/J Sync] Chưa cấu hình AI — đặt AI_PROVIDER=ollama + OLLAMA_BASE_URL trong backend/.env',
+  );
 }
 
 const app = express();
@@ -81,6 +77,7 @@ app.get('/api/health', (_req, res) => {
 app.use(errorHandler);
 
 setupSocket(io);
+setSocketIo(io);
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {

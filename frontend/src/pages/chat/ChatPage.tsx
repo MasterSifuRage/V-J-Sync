@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { useAuthStore } from '../../store/authStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
@@ -8,8 +9,11 @@ import { Channel, Message, User, Workspace, WorkspaceMember } from '../../types'
 import io, { Socket } from 'socket.io-client';
 import Sidebar from '../../components/layout/Sidebar';
 import { getStoredToken } from '../../lib/authToken';
-import { getTranslateTarget } from '../../lib/translateTarget';
-import { canCreateTask } from '../../lib/workspaceRole';
+import { uiDateLocale } from '../../lib/dateLocale';
+import { detectTextLang, isValidTranslation, translationPair } from '../../lib/textLang';
+import { fetchTranslation, TaskTranslationBlock } from '../tasks/taskDetailHelpers';
+import { useTranslateTarget } from '../../hooks/useTranslateTarget';
+import { canCreateTask, canModerateAllChatMessages } from '../../lib/workspaceRole';
 import { isGeneralChannel } from '../../lib/channelUtils';
 import {
   ChatMode,
@@ -22,11 +26,13 @@ import {
 } from './chatTypes';
 import ChatUnreadBadge from './ChatUnreadBadge';
 import UserAvatar from '../../components/common/UserAvatar';
+import '../tasks/TaskDetailPage.css';
 import './ChatPage.css';
 
 const EMOJI_LIST = ['😀', '😂', '👍', '❤️', '🎉', '🙏', '✅', '🔥', '💡', '👋', '😊', '🤔'];
 
 export default function ChatPage() {
+  const { t, i18n } = useTranslation();
   const { channelId: paramChannelId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -43,8 +49,15 @@ export default function ChatPage() {
 
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [translations, setTranslations] = useState<Record<string, string>>({});
+  const [translatingIds, setTranslatingIds] = useState<Record<string, boolean>>({});
+  const translateTarget = useTranslateTarget();
+
+  useEffect(() => {
+    setTranslations({});
+  }, [translateTarget]);
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterLang, setFilterLang] = useState('all');
+  const [messageFilter, setMessageFilter] = useState<'all' | 'pinned' | 'hidden'>('all');
   const [showRightSidebar, setShowRightSidebar] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
@@ -344,6 +357,32 @@ export default function ChatPage() {
       }
     });
 
+    socket.on(
+      'message_state_updated',
+      (payload: {
+        messageId: string;
+        isPinned: boolean;
+        pinnedByUserId: string | null;
+        isHidden: boolean;
+        hiddenByUserId: string | null;
+      }) => {
+        setMessages((prev) => {
+          if (!prev.some((m) => m.id === payload.messageId)) return prev;
+          return prev.map((m) =>
+            m.id === payload.messageId
+              ? {
+                  ...m,
+                  isPinned: payload.isPinned,
+                  pinnedByUserId: payload.pinnedByUserId,
+                  isHidden: payload.isHidden,
+                  hiddenByUserId: payload.hiddenByUserId,
+                }
+              : m,
+          );
+        });
+      },
+    );
+
     const rejoinRooms = () => {
       if (chatModeRef.current === 'channel' && selectedChannelIdRef.current) {
         socket.emit('join_channel', selectedChannelIdRef.current);
@@ -356,6 +395,7 @@ export default function ChatPage() {
     socket.on('connect', rejoinRooms);
 
     return () => {
+      socket.off('message_state_updated');
       socket.off('connect', rejoinRooms);
       socket.disconnect();
       socketRef.current = null;
@@ -469,7 +509,7 @@ export default function ChatPage() {
         void refreshChannelDetail(selectedChannel.id);
       } catch {
         if (inputRef.current) inputRef.current.innerText = content;
-        window.alert('Không gửi được tin nhắn. Kiểm tra backend đang chạy.');
+        window.alert(t('chat.sendFailed'));
       }
       return;
     }
@@ -498,7 +538,7 @@ export default function ChatPage() {
         appendMessage(messageToDisplay(dm));
       } catch {
         if (inputRef.current) inputRef.current.innerText = content;
-        window.alert('Không gửi được tin nhắn. Kiểm tra backend đang chạy.');
+        window.alert(t('chat.sendFailed'));
       }
     }
   }, [chatMode, selectedChannel, selectedDmUser, currentWorkspace, appendMessage, refreshChannelDetail]);
@@ -531,34 +571,40 @@ export default function ChatPage() {
       });
       return;
     }
+
+    const pair = translationPair(detectTextLang(msg.content), translateTarget);
+    if (!pair) return;
+
+    setTranslatingIds((prev) => ({ ...prev, [msg.id]: true }));
     try {
-      const senderLang =
-        msg.sender?.preferredLanguage === 'ja'
-          ? 'ja'
-          : msg.sender?.preferredLanguage === 'en'
-            ? 'en'
-            : 'vi';
-      const res = await aiAPI.translate({
-        text: msg.content,
-        from: senderLang,
-        to: getTranslateTarget(),
-      });
-      const translated =
-        res.data.translated ?? res.data.translation ?? res.data.text ?? '';
-      setTranslations((prev) => ({
-        ...prev,
-        [msg.id]: translated || '[Không có bản dịch]',
-      }));
+      const translated = await fetchTranslation(msg.content, pair.from, pair.to, aiAPI.translate);
+      if (translated && isValidTranslation(translated, translateTarget)) {
+        setTranslations((prev) => ({ ...prev, [msg.id]: translated }));
+      } else {
+        setTranslations((prev) => ({
+          ...prev,
+          [msg.id]: t('chat.translateFailed'),
+        }));
+      }
     } catch (err) {
       const apiMsg = axios.isAxiosError(err)
         ? (err.response?.data as { error?: string } | undefined)?.error
         : undefined;
       setTranslations((prev) => ({
         ...prev,
-        [msg.id]: apiMsg ? `[Lỗi dịch] ${apiMsg}` : '[Lỗi dịch]',
+        [msg.id]: apiMsg ? `[${t('chat.translateFailed')}] ${apiMsg}` : t('chat.translateFailed'),
       }));
+    } finally {
+      setTranslatingIds((prev) => {
+        const copy = { ...prev };
+        delete copy[msg.id];
+        return copy;
+      });
     }
   };
+
+  const canTranslateMessage = (content: string) =>
+    !!translationPair(detectTextLang(content), translateTarget);
 
   const openCreateChannel = (wsId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -583,7 +629,7 @@ export default function ChatPage() {
       if (ws) handleSelectChannel(ws, ch);
       setShowChannelModal(false);
     } catch {
-      window.alert('Không thể tạo kênh. Vui lòng thử lại.');
+      window.alert(t('chat.createChannelFailed'));
     } finally {
       setCreatingChannel(false);
     }
@@ -650,6 +696,85 @@ export default function ChatPage() {
   const memberCount =
     chatMode === 'channel' ? channelDisplayMembers.length : dmChatParticipants.length;
 
+  const messageTargetType = chatMode === 'channel' ? 'channel' : 'dm';
+  const canModerateMessages = canModerateAllChatMessages(currentWorkspace?.roleId);
+
+  const updateMessageLocalState = useCallback(
+    (
+      messageId: string,
+      patch: Partial<
+        Pick<DisplayMessage, 'isPinned' | 'pinnedByUserId' | 'isHidden' | 'hiddenByUserId'>
+      >,
+    ) => {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, ...patch } : m)),
+      );
+    },
+    [],
+  );
+
+  const handleTogglePin = async (msg: DisplayMessage) => {
+    const next = !msg.isPinned;
+    if (
+      !next &&
+      !canModerateMessages &&
+      msg.pinnedByUserId &&
+      msg.pinnedByUserId !== user?.id
+    ) {
+      return;
+    }
+
+    const optimistic = {
+      isPinned: next,
+      pinnedByUserId: next ? (user?.id ?? null) : null,
+    };
+    updateMessageLocalState(msg.id, optimistic);
+    try {
+      const res = await messageAPI.updateState(messageTargetType, msg.id, { isPinned: next });
+      const updated = res.data.message ?? res.data;
+      updateMessageLocalState(msg.id, {
+        isPinned: updated.isPinned ?? next,
+        pinnedByUserId: updated.pinnedByUserId ?? null,
+      });
+    } catch {
+      updateMessageLocalState(msg.id, {
+        isPinned: msg.isPinned,
+        pinnedByUserId: msg.pinnedByUserId,
+      });
+    }
+  };
+
+  const handleToggleHide = async (msg: DisplayMessage) => {
+    const next = !msg.isHidden;
+    if (
+      !next &&
+      !canModerateMessages &&
+      msg.hiddenByUserId &&
+      msg.hiddenByUserId !== user?.id
+    ) {
+      return;
+    }
+
+    const optimistic = {
+      isHidden: next,
+      hiddenByUserId: next ? (user?.id ?? null) : null,
+    };
+    updateMessageLocalState(msg.id, optimistic);
+    try {
+      const res = await messageAPI.updateState(messageTargetType, msg.id, { isHidden: next });
+      const updated = res.data.message ?? res.data;
+      updateMessageLocalState(msg.id, {
+        isHidden: updated.isHidden ?? next,
+        hiddenByUserId: updated.hiddenByUserId ?? null,
+      });
+    } catch {
+      updateMessageLocalState(msg.id, {
+        isHidden: msg.isHidden,
+        hiddenByUserId: msg.hiddenByUserId,
+      });
+    }
+  };
+
   const filteredMessages = messages.filter((msg) => {
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -657,16 +782,14 @@ export default function ChatPage() {
         return false;
       }
     }
-    if (filterLang !== 'all') {
-      const lang = msg.sender?.preferredLanguage || 'vi';
-      if (filterLang === 'vi' && lang !== 'vi') return false;
-      if (filterLang === 'ja' && lang !== 'ja') return false;
-    }
+    if (messageFilter === 'all') return !msg.isHidden;
+    if (messageFilter === 'pinned') return msg.isPinned && !msg.isHidden;
+    if (messageFilter === 'hidden') return msg.isHidden;
     return true;
   });
 
   const groupedByDate = filteredMessages.reduce<Record<string, DisplayMessage[]>>((acc, msg) => {
-    const date = new Date(msg.createdAt).toLocaleDateString('vi-VN', {
+    const date = new Date(msg.createdAt).toLocaleDateString(uiDateLocale(i18n.language), {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
@@ -677,6 +800,13 @@ export default function ChatPage() {
     return acc;
   }, {});
 
+  for (const date of Object.keys(groupedByDate)) {
+    groupedByDate[date].sort((a, b) => {
+      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+  }
+
   return (
     <div className="chat-page">
       <Sidebar />
@@ -684,8 +814,8 @@ export default function ChatPage() {
       <div className="chat-body">
         <div className="channel-nav">
           <div className="channel-nav-top">
-            <h2 className="channel-nav-title">Workspace</h2>
-            <span className="channel-nav-count">{sortedWorkspaces.length} tham gia</span>
+            <h2 className="channel-nav-title">{t('chat.workspace')}</h2>
+            <span className="channel-nav-count">{t('common.joinedCount', { count: sortedWorkspaces.length })}</span>
           </div>
 
           <div className="workspace-list">
@@ -723,17 +853,17 @@ export default function ChatPage() {
                     <div className="ws-group-body">
                       <div className="channel-section">
                         <div className="channel-section-title">
-                          <span>Channels</span>
+                          <span>{t('chat.channels')}</span>
                           <button
                             type="button"
-                            title="Tạo kênh mới"
+                            title={t('chat.createChannel')}
                             onClick={(e) => openCreateChannel(ws.id, e)}
                           >
                             +
                           </button>
                         </div>
                         {channels.length === 0 ? (
-                          <p className="channel-empty-hint">Chưa có kênh</p>
+                          <p className="channel-empty-hint">{t('chat.noChannels')}</p>
                         ) : (
                           channels.map((ch) => (
                             <div
@@ -765,10 +895,10 @@ export default function ChatPage() {
                       {isActiveWs && (
                         <div className="channel-section">
                           <div className="channel-section-title">
-                            <span>Direct Messages</span>
+                            <span>{t('chat.directMessages')}</span>
                             <button
                               type="button"
-                              title="Chọn người nhắn riêng"
+                              title={t('chat.pickDm')}
                               onClick={(e) => openDmPicker(ws.id, e)}
                             >
                               +
@@ -795,7 +925,7 @@ export default function ChatPage() {
                             ))}
                           {workspaceMembers.filter((m) => m.userId !== user?.id).length ===
                             0 && (
-                            <p className="channel-empty-hint">Chưa có thành viên khác</p>
+                            <p className="channel-empty-hint">{t('chat.noOtherMembersShort')}</p>
                           )}
                         </div>
                       )}
@@ -814,7 +944,7 @@ export default function ChatPage() {
                 <>
                   <h3># {selectedChannel?.name || '—'}</h3>
                   <span className="member-count">
-                    <i className="fas fa-user" /> {memberCount} thành viên
+                    <i className="fas fa-user" /> {t('common.membersCount', { count: memberCount })}
                   </span>
                   {currentWorkspace && (
                     <span className="chat-header-ws">{currentWorkspace.name}</span>
@@ -824,9 +954,9 @@ export default function ChatPage() {
                 <>
                   <h3>
                     <i className="fas fa-at" style={{ fontSize: 14, marginRight: 4 }} />
-                    {selectedDmUser?.name || 'Chọn cuộc trò chuyện'}
+                    {selectedDmUser?.name || t('chat.selectConversation')}
                   </h3>
-                  <span className="member-count">Tin nhắn riêng</span>
+                  <span className="member-count">{t('chat.privateMessage')}</span>
                   {currentWorkspace && (
                     <span className="chat-header-ws">{currentWorkspace.name}</span>
                   )}
@@ -836,18 +966,18 @@ export default function ChatPage() {
             <div className="chat-header-actions">
               <input
                 type="text"
-                placeholder="Tìm kiếm tin nhắn..."
+                placeholder={t('chat.searchMessages')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
               <select
-                value={filterLang}
-                onChange={(e) => setFilterLang(e.target.value)}
-                title="Lọc theo ngôn ngữ người gửi"
+                value={messageFilter}
+                onChange={(e) => setMessageFilter(e.target.value as 'all' | 'pinned' | 'hidden')}
+                title={t('chat.filterMessages')}
               >
-                <option value="all">Tất cả</option>
-                <option value="vi">Tiếng Việt</option>
-                <option value="ja">Tiếng Nhật</option>
+                <option value="all">{t('common.all')}</option>
+                <option value="pinned">{t('chat.filterPinned')}</option>
+                <option value="hidden">{t('chat.filterHidden')}</option>
               </select>
               {canCreateTask(currentWorkspace?.roleId) && (
                 <button
@@ -855,7 +985,7 @@ export default function ChatPage() {
                   className="btn-task"
                   onClick={() => navigate('/tasks/create')}
                 >
-                  Tạo Task
+                  {t('chat.createTask')}
                 </button>
               )}
               <button
@@ -863,13 +993,13 @@ export default function ChatPage() {
                 className="btn-remind"
                 onClick={() => navigate('/reminders/create')}
               >
-                Nhắc nhở
+                {t('chat.reminder')}
               </button>
               <button
                 type="button"
                 className={`btn-info ${showRightSidebar ? 'active' : ''}`}
                 onClick={() => setShowRightSidebar(!showRightSidebar)}
-                title="Chi tiết"
+                title={t('chat.details')}
               >
                 <i className="fas fa-info-circle" />
               </button>
@@ -880,21 +1010,37 @@ export default function ChatPage() {
             {!selectedChannel && !selectedDmUser && (
               <div className="chat-placeholder">
                 <i className="fas fa-comments" />
-                <p>Chọn kênh hoặc tin nhắn riêng để bắt đầu</p>
+                <p>{t('chat.pickChannelOrDm')}</p>
               </div>
             )}
             {isLoadingMessages && (
-              <div className="chat-loading">Đang tải tin nhắn...</div>
+              <div className="chat-loading">{t('chat.loadingMessages')}</div>
             )}
+            {!isLoadingMessages &&
+              (selectedChannel || selectedDmUser) &&
+              messages.length > 0 &&
+              filteredMessages.length === 0 && (
+                <div className="chat-filter-empty">
+                  <i className="fas fa-filter" />
+                  <p>{t('chat.noFilteredMessages')}</p>
+                </div>
+              )}
             {Object.entries(groupedByDate).map(([date, msgs]) => (
               <div key={date}>
                 <div className="date-divider">
                   <span>{date}</span>
                 </div>
-                {msgs.map((msg) => (
+                {msgs.map((msg) => {
+                  const showTranslate = canTranslateMessage(msg.content);
+                  const isTranslating = !!translatingIds[msg.id];
+                  const canTogglePin =
+                    canModerateMessages || !msg.isPinned || msg.pinnedByUserId === user?.id;
+                  const canToggleHide =
+                    canModerateMessages || !msg.isHidden || msg.hiddenByUserId === user?.id;
+                  return (
                   <div
                     key={msg.id}
-                    className={`message-row ${msg.senderId === user?.id ? 'message-row-own' : ''}`}
+                    className={`message-row ${msg.senderId === user?.id ? 'message-row-own' : ''}${msg.isPinned ? ' message-row-pinned' : ''}${msg.isHidden ? ' message-row-hidden' : ''}`}
                   >
                     <UserAvatar
                       name={msg.sender?.name}
@@ -905,8 +1051,13 @@ export default function ChatPage() {
                     <div className="message-body">
                       <div className="message-header">
                         <span className="message-sender">{msg.sender?.name}</span>
+                        {msg.isPinned && (
+                          <span className="message-pin-badge">
+                            <i className="fas fa-thumbtack" /> {t('chat.pinnedBadge')}
+                          </span>
+                        )}
                         <span className="message-time">
-                          {new Date(msg.createdAt).toLocaleTimeString('vi-VN', {
+                          {new Date(msg.createdAt).toLocaleTimeString(uiDateLocale(i18n.language), {
                             hour: '2-digit',
                             minute: '2-digit',
                           })}
@@ -914,22 +1065,54 @@ export default function ChatPage() {
                       </div>
                       <div className="message-content">{msg.content}</div>
                       <div className="message-actions">
-                        <button type="button" onClick={() => handleTranslate(msg)}>
-                          <i className="fas fa-language" />{' '}
-                          {translations[msg.id] ? 'Ẩn dịch' : 'Dịch'}
-                        </button>
+                        {canTogglePin && (
+                          <button
+                            type="button"
+                            className={`message-action-icon${msg.isPinned ? ' is-active' : ''}`}
+                            title={msg.isPinned ? t('chat.unpin') : t('chat.pin')}
+                            aria-label={msg.isPinned ? t('chat.unpin') : t('chat.pin')}
+                            onClick={() => void handleTogglePin(msg)}
+                          >
+                            <i className="fas fa-thumbtack" aria-hidden="true" />
+                          </button>
+                        )}
+                        {canToggleHide && (
+                          <button
+                            type="button"
+                            className={`message-action-icon${msg.isHidden ? ' is-active' : ''}`}
+                            title={msg.isHidden ? t('chat.unhide') : t('chat.hide')}
+                            aria-label={msg.isHidden ? t('chat.unhide') : t('chat.hide')}
+                            onClick={() => void handleToggleHide(msg)}
+                          >
+                            <i
+                              className={`fas ${msg.isHidden ? 'fa-eye' : 'fa-eye-slash'}`}
+                              aria-hidden="true"
+                            />
+                          </button>
+                        )}
+                        {showTranslate && (
+                          <button
+                            type="button"
+                            disabled={isTranslating}
+                            onClick={() => void handleTranslate(msg)}
+                          >
+                            <i className={`fas ${isTranslating ? 'fa-spinner fa-spin' : 'fa-language'}`} />{' '}
+                            {isTranslating
+                              ? t('common.loading')
+                              : translations[msg.id]
+                                ? t('chat.hideTranslate')
+                                : t('chat.translate')}
+                          </button>
+                        )}
                       </div>
                       {translations[msg.id] && (
-                        <div className="translation-block">
-                          <div className="translation-label">
-                            <i className="fas fa-globe" /> Bản dịch AI
-                          </div>
-                          {translations[msg.id]}
-                        </div>
+                        <TaskTranslationBlock variant={translateTarget}>
+                          <div className="chat-translation-text">{translations[msg.id]}</div>
+                        </TaskTranslationBlock>
                       )}
                     </div>
                   </div>
-                ))}
+                );})}
               </div>
             ))}
             <div ref={messagesEndRef} />
@@ -939,34 +1122,30 @@ export default function ChatPage() {
             className={`chat-input-area ${!selectedChannel && !selectedDmUser ? 'disabled' : ''}`}
           >
             <div className="chat-input-toolbar">
-              <button type="button" title="In đậm" onClick={() => applyFormat('bold')}>
+              <button type="button" title={t('chat.bold')} onClick={() => applyFormat('bold')}>
                 <i className="fas fa-bold" />
               </button>
-              <button type="button" title="In nghiêng" onClick={() => applyFormat('italic')}>
+              <button type="button" title={t('chat.italic')} onClick={() => applyFormat('italic')}>
                 <i className="fas fa-italic" />
               </button>
-              <button type="button" title="Danh sách" onClick={() => applyFormat('insertUnorderedList')}>
+              <button type="button" title={t('chat.list')} onClick={() => applyFormat('insertUnorderedList')}>
                 <i className="fas fa-list-ul" />
               </button>
               <button
                 type="button"
-                title="Dịch tin nhắn đang soạn (chèn gợi ý)"
+                title={t('chat.translateDraft')}
                 onClick={async () => {
                   const text = inputRef.current?.innerText?.trim();
                   if (!text) return;
+                  const pair = translationPair(detectTextLang(text), translateTarget);
+                  if (!pair) return;
                   try {
-                    const res = await aiAPI.translate({
-                      text,
-                      from: 'vi',
-                      to: getTranslateTarget(),
-                    });
-                    const t =
-                      res.data.translated ?? res.data.translation ?? res.data.text ?? '';
-                    if (t && inputRef.current) {
-                      inputRef.current.innerText = t;
+                    const translated = await fetchTranslation(text, pair.from, pair.to, aiAPI.translate);
+                    if (translated && inputRef.current) {
+                      inputRef.current.innerText = translated;
                     }
                   } catch {
-                    window.alert('Không dịch được. Kiểm tra cấu hình AI.');
+                    window.alert(t('chat.translateFailed'));
                   }
                 }}
               >
@@ -977,7 +1156,7 @@ export default function ChatPage() {
               className="chat-input-box"
               ref={inputRef}
               contentEditable={!!(selectedChannel || selectedDmUser)}
-              data-placeholder="Nhập tin nhắn..."
+              data-placeholder={t('chat.inputPlaceholder')}
               onKeyDown={handleKeyDown}
             />
             <div className="chat-input-footer">
@@ -985,7 +1164,7 @@ export default function ChatPage() {
                 <div className="emoji-wrap">
                   <button
                     type="button"
-                    title="Chèn emoji"
+                    title={t('chat.insertEmoji')}
                     onClick={() => setShowEmojiPicker((v) => !v)}
                   >
                     <i className="fas fa-smile" />
@@ -1007,7 +1186,7 @@ export default function ChatPage() {
                 disabled={!selectedChannel && !selectedDmUser}
                 onClick={handleSendMessage}
               >
-                <i className="fas fa-paper-plane" /> Gửi
+                <i className="fas fa-paper-plane" /> {t('chat.send')}
               </button>
             </div>
           </div>
@@ -1015,33 +1194,33 @@ export default function ChatPage() {
 
         <div className={`chat-right-sidebar ${showRightSidebar ? '' : 'hidden'}`}>
           <div className="right-sidebar-header">
-            <h4>{chatMode === 'channel' ? 'Chi tiết kênh' : 'Chi tiết trò chuyện'}</h4>
+            <h4>{chatMode === 'channel' ? t('chat.channelDetails') : t('chat.conversationDetails')}</h4>
             <button type="button" onClick={() => setShowRightSidebar(false)}>
               <i className="fas fa-times" />
             </button>
           </div>
           {currentWorkspace && (
             <div className="right-sidebar-section">
-              <h5>Workspace</h5>
+              <h5>{t('chat.workspace')}</h5>
               <p className="right-ws-name">{currentWorkspace.name}</p>
               <p className="right-ws-meta">
-                <i className="fas fa-users" /> {currentWorkspace.memberCount ?? 0} thành viên
+                <i className="fas fa-users" /> {t('common.membersCount', { count: currentWorkspace.memberCount ?? 0 })}
               </p>
             </div>
           )}
           <div className="right-sidebar-section">
-            <h5>Mô tả</h5>
+            <h5>{t('common.description')}</h5>
             <p>
               {chatMode === 'channel'
-                ? selectedChannel?.description || channelDetail?.description || 'Không có mô tả.'
+                ? selectedChannel?.description || channelDetail?.description || t('chat.noDescription')
                 : selectedDmUser
-                  ? `Tin nhắn riêng với ${selectedDmUser.name}`
-                  : 'Chọn cuộc trò chuyện.'}
+                  ? t('chat.dmWith', { name: selectedDmUser.name })
+                  : t('chat.selectConversationHint')}
             </p>
           </div>
           <div className="right-sidebar-section">
             <h5>
-              Thành viên ({memberCount})
+              {t('chat.membersSection', { count: memberCount })}
             </h5>
             <ul className="right-member-list">
               {chatMode === 'dm' &&
@@ -1050,12 +1229,12 @@ export default function ChatPage() {
                     <UserAvatar name={m.name} avatarUrl={m.avatarUrl} size="sm" />
                     <span>
                       {m.name}
-                      {m.id === user?.id ? ' (bạn)' : ''}
+                      {m.id === user?.id ? ` ${t('common.you')}` : ''}
                     </span>
                   </li>
                 ))}
               {chatMode === 'dm' && dmChatParticipants.length === 0 && (
-                <li className="right-member-empty">Chưa có tin nhắn trong cuộc trò chuyện.</li>
+                <li className="right-member-empty">{t('chat.noDmMessages')}</li>
               )}
               {chatMode === 'channel' &&
                 channelDisplayMembers.map((m) => (
@@ -1063,22 +1242,22 @@ export default function ChatPage() {
                     <UserAvatar name={m.name} avatarUrl={m.avatarUrl} size="sm" />
                     <span>
                       {m.name}
-                      {m.id === user?.id ? ' (bạn)' : ''}
+                      {m.id === user?.id ? ` ${t('common.you')}` : ''}
                     </span>
                   </li>
                 ))}
               {chatMode === 'channel' && channelDisplayMembers.length === 0 && (
                 <li className="right-member-empty">
                   {isGeneralChannel(selectedChannel)
-                    ? 'Chưa có thành viên workspace.'
-                    : 'Chưa có thành viên — người tạo kênh hoặc người gửi tin sẽ hiện ở đây.'}
+                    ? t('chat.noGeneralMembers')
+                    : t('chat.noChannelMembers')}
                 </li>
               )}
             </ul>
           </div>
           <div className="right-sidebar-section">
-            <h5>File được chia sẻ</h5>
-            <p className="right-empty-files">Chưa có file nào.</p>
+            <h5>{t('chat.sharedFiles')}</h5>
+            <p className="right-empty-files">{t('chat.noFiles')}</p>
           </div>
         </div>
       </div>
@@ -1086,32 +1265,32 @@ export default function ChatPage() {
       {showChannelModal && (
         <div className="chat-modal-overlay" onClick={() => setShowChannelModal(false)}>
           <div className="chat-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Tạo kênh mới</h3>
+            <h3>{t('chat.createChannelTitle')}</h3>
             <form onSubmit={handleCreateChannel}>
               <label>
-                Tên kênh *
+                {t('chat.channelName')}
                 <input
                   value={newChannelName}
                   onChange={(e) => setNewChannelName(e.target.value)}
-                  placeholder="VD: marketing"
+                  placeholder={t('chat.channelNamePlaceholder')}
                   required
                 />
               </label>
               <label>
-                Mô tả
+                {t('common.description')}
                 <textarea
                   value={newChannelDesc}
                   onChange={(e) => setNewChannelDesc(e.target.value)}
                   rows={2}
-                  placeholder="Mô tả ngắn..."
+                  placeholder={t('chat.channelDescPlaceholder')}
                 />
               </label>
               <div className="chat-modal-actions">
                 <button type="button" onClick={() => setShowChannelModal(false)}>
-                  Hủy
+                  {t('common.cancel')}
                 </button>
                 <button type="submit" disabled={creatingChannel}>
-                  {creatingChannel ? 'Đang tạo...' : 'Tạo kênh'}
+                  {creatingChannel ? t('common.creating') : t('chat.createChannelBtn')}
                 </button>
               </div>
             </form>
@@ -1122,7 +1301,7 @@ export default function ChatPage() {
       {showDmPicker && dmPickerWsId && (
         <div className="chat-modal-overlay" onClick={() => setShowDmPicker(false)}>
           <div className="chat-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Chọn người nhắn riêng</h3>
+            <h3>{t('chat.pickDmTitle')}</h3>
             <ul className="dm-picker-list">
               {workspaceMembers
                 .filter((m) => m.userId !== user?.id)
@@ -1140,11 +1319,11 @@ export default function ChatPage() {
                 })}
             </ul>
             {workspaceMembers.filter((m) => m.userId !== user?.id).length === 0 && (
-              <p className="channel-empty-hint">Không có thành viên khác trong workspace.</p>
+              <p className="channel-empty-hint">{t('chat.noOtherMembers')}</p>
             )}
             <div className="chat-modal-actions">
               <button type="button" onClick={() => setShowDmPicker(false)}>
-                Đóng
+                {t('common.close')}
               </button>
             </div>
           </div>

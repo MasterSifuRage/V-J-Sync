@@ -4,6 +4,7 @@ export interface User {
   email: string;
   avatarUrl?: string;
   preferredLanguage: string;
+  translateToLanguage?: string;
   department?: string;
   phone?: string;
 }
@@ -49,6 +50,10 @@ export interface Message {
   fileType?: string;
   createdAt: string;
   sender: User;
+  isPinned?: boolean;
+  pinnedByUserId?: string | null;
+  isHidden?: boolean;
+  hiddenByUserId?: string | null;
 }
 
 export interface DirectMsg {
@@ -60,6 +65,10 @@ export interface DirectMsg {
   translatedContent?: string;
   createdAt: string;
   sender: User;
+  isPinned?: boolean;
+  pinnedByUserId?: string | null;
+  isHidden?: boolean;
+  hiddenByUserId?: string | null;
 }
 
 export interface Task {
@@ -67,6 +76,10 @@ export interface Task {
   workspaceId: string;
   title: string;
   description?: string;
+  summary?: string;
+  summaryJa?: string;
+  descriptionJa?: string;
+  autoTranslateJa?: boolean;
   status: 'todo' | 'in_progress' | 'review' | 'done';
   priority: 'normal' | 'high' | 'urgent';
   tags: string[];
@@ -85,6 +98,7 @@ export interface TaskComment {
   taskId: string;
   userId: string;
   content: string;
+  translatedContent?: string;
   user: User;
   createdAt: string;
 }

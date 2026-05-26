@@ -14,6 +14,11 @@ export function canManageWorkspace(roleId?: number): boolean {
   return roleId === ROLE.ADMIN;
 }
 
+/** Giám đốc / quản lý: ghim/bỏ ghim, ẩn/bỏ ẩn mọi tin nhắn trong chat */
+export function canModerateAllChatMessages(roleId?: number): boolean {
+  return roleId === ROLE.ADMIN || roleId === ROLE.MANAGER;
+}
+
 export function isEmployee(roleId?: number): boolean {
   return roleId === ROLE.EMPLOYEE;
 }

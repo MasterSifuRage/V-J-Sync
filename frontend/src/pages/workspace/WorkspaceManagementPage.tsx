@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { workspaceAPI } from '../../services/api';
 import { WorkspaceMember } from '../../types';
+import { ROLE_I18N_KEYS } from '../../lib/dateLocale';
+import { normalizeUILanguage } from '../../lib/uiLanguage';
 import UserAvatar from '../../components/common/UserAvatar';
 import './WorkspaceManagementPage.css';
 
@@ -18,7 +21,15 @@ interface PickableUser {
   preferredLanguage?: string;
 }
 
+const ROLE_OPTIONS = [1, 2, 3, 4] as const;
+const PERMISSION_OPTIONS = [
+  { value: 'admin', key: 'permissionAdmin' },
+  { value: 'write', key: 'permissionWrite' },
+  { value: 'read', key: 'permissionRead' },
+] as const;
+
 export default function WorkspaceManagementPage() {
+  const { t } = useTranslation();
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const navigate = useNavigate();
 
@@ -40,7 +51,6 @@ export default function WorkspaceManagementPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
-  const [newLanguage, setNewLanguage] = useState('vi');
   const [newRole, setNewRole] = useState(3);
   const [newPermission, setNewPermission] = useState('read');
   const [adding, setAdding] = useState(false);
@@ -68,7 +78,7 @@ export default function WorkspaceManagementPage() {
         setDescription(ws.description || '');
         setMembers(memRes.data.members ?? memRes.data);
       })
-      .catch(() => setError('Không thể tải dữ liệu workspace.'))
+      .catch(() => setError(t('wsManage.loadError')))
       .finally(() => setLoading(false));
   }, [workspaceId, navigate]);
 
@@ -85,7 +95,6 @@ export default function WorkspaceManagementPage() {
   const resetAddMemberForm = () => {
     setNewEmail('');
     setNewName('');
-    setNewLanguage('vi');
     setNewRole(3);
     setNewPermission('read');
     setShowUserPicker(false);
@@ -101,7 +110,6 @@ export default function WorkspaceManagementPage() {
     setPickedUserId(u.id);
     setNewEmail(u.email);
     setNewName(u.name);
-    setNewLanguage(u.preferredLanguage || 'vi');
   };
 
   const handleSave = async () => {
@@ -115,10 +123,10 @@ export default function WorkspaceManagementPage() {
         department: department.trim() || undefined,
         description: description.trim() || undefined,
       });
-      setSuccess('Đã lưu thay đổi thành công!');
+      setSuccess(t('wsManage.saveSuccess'));
       setTimeout(() => setSuccess(''), 3000);
     } catch {
-      setError('Không thể lưu thay đổi.');
+      setError(t('wsManage.saveError'));
     } finally {
       setSaving(false);
     }
@@ -126,30 +134,35 @@ export default function WorkspaceManagementPage() {
 
   const handleUpdateMember = async (
     userId: string,
-    field: string,
-    value: any
+    field: 'roleId' | 'permission' | 'preferredLanguage',
+    value: string | number
   ) => {
     if (!workspaceId) return;
     try {
-      await workspaceAPI.updateMember(workspaceId, userId, { [field]: value });
+      const payload =
+        field === 'preferredLanguage'
+          ? { preferredLanguage: value }
+          : field === 'roleId'
+            ? { roleId: value }
+            : { permission: value };
+      const res = await workspaceAPI.updateMember(workspaceId, userId, payload);
+      const updated: WorkspaceMember = res.data.member ?? res.data;
       setMembers((prev) =>
-        prev.map((m) =>
-          m.userId === userId ? { ...m, [field]: value } : m
-        )
+        prev.map((m) => (m.userId === userId ? updated : m))
       );
     } catch {
-      setError('Không thể cập nhật thành viên.');
+      setError(t('wsManage.updateMemberError'));
     }
   };
 
   const handleRemoveMember = async (userId: string) => {
-    if (!workspaceId || !window.confirm('Xóa thành viên này khỏi workspace?'))
+    if (!workspaceId || !window.confirm(t('wsManage.confirmRemoveMember')))
       return;
     try {
       await workspaceAPI.removeMember(workspaceId, userId);
       setMembers((prev) => prev.filter((m) => m.userId !== userId));
     } catch {
-      setError('Không thể xóa thành viên.');
+      setError(t('wsManage.removeMemberError'));
     }
   };
 
@@ -161,7 +174,6 @@ export default function WorkspaceManagementPage() {
       await workspaceAPI.addMember(workspaceId, {
         email: newEmail.trim(),
         name: newName.trim() || undefined,
-        preferredLanguage: newLanguage,
         roleId: newRole,
         permission: newPermission,
       });
@@ -170,7 +182,7 @@ export default function WorkspaceManagementPage() {
       setShowAddModal(false);
       resetAddMemberForm();
     } catch {
-      setError('Không thể thêm thành viên. Kiểm tra lại email.');
+      setError(t('wsManage.addMemberError'));
     } finally {
       setAdding(false);
     }
@@ -181,7 +193,7 @@ export default function WorkspaceManagementPage() {
       <div className="ws-manage-page">
         <div className="manage-loading">
           <i className="fas fa-spinner fa-spin" />
-          <p>Đang tải...</p>
+          <p>{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -189,70 +201,67 @@ export default function WorkspaceManagementPage() {
 
   return (
     <div className="ws-manage-page">
-      {/* Header */}
       <div className="manage-header">
         <div className="manage-header-left">
           <button className="btn-back" onClick={() => navigate('/workspaces')}>
-            <i className="fas fa-arrow-left" /> Quay lại
+            <i className="fas fa-arrow-left" /> {t('wsManage.back')}
           </button>
-          <h1>Quản lý Workspace</h1>
-          <span className="badge-director">Director Access</span>
+          <h1>{t('wsManage.title')}</h1>
+          <span className="badge-director">{t('wsManage.directorBadge')}</span>
         </div>
         <button className="btn-save-header" onClick={handleSave} disabled={saving}>
-          <i className="fas fa-save" /> {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+          <i className="fas fa-save" /> {saving ? t('common.saving') : t('wsManage.saveChanges')}
         </button>
       </div>
 
       {error && <div className="manage-error">{error}</div>}
       {success && <div className="manage-success">{success}</div>}
 
-      {/* Card 1: General Info */}
       <div className="manage-card">
         <h2 className="card-title">
-          <i className="fas fa-info-circle" /> Thông tin chung
+          <i className="fas fa-info-circle" /> {t('wsManage.generalInfo')}
         </h2>
         <div className="info-grid">
           <div className="form-group">
-            <label htmlFor="ws-name">Tên Workspace</label>
+            <label htmlFor="ws-name">{t('wsManage.wsName')}</label>
             <input
               id="ws-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Tên workspace"
+              placeholder={t('wsManage.wsNamePlaceholder')}
             />
           </div>
           <div className="form-group">
-            <label htmlFor="ws-dept">Phòng ban</label>
+            <label htmlFor="ws-dept">{t('settings.department')}</label>
             <input
               id="ws-dept"
               type="text"
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              placeholder="Phòng ban"
+              placeholder={t('wsManage.deptPlaceholder')}
             />
           </div>
           <div className="form-group full-width">
-            <label htmlFor="ws-desc">Mô tả</label>
+            <label htmlFor="ws-desc">{t('common.description')}</label>
             <textarea
               id="ws-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Mô tả workspace..."
+              placeholder={t('wsManage.manageDescPlaceholder')}
               rows={3}
             />
           </div>
         </div>
       </div>
 
-      {/* Card 2: Members */}
       <div className="manage-card">
         <div className="card-title-row">
           <h2 className="card-title">
-            <i className="fas fa-users" /> Quản lý thành viên
+            <i className="fas fa-users" /> {t('wsManage.membersTitle')}
           </h2>
           <button className="btn-add-member" onClick={openAddMemberModal}>
-            <i className="fas fa-plus" /> Thêm thành viên
+            <i className="fas fa-plus" /> {t('wsManage.addMember')}
           </button>
         </div>
 
@@ -260,10 +269,10 @@ export default function WorkspaceManagementPage() {
           <table className="members-table">
             <thead>
               <tr>
-                <th>Thành viên</th>
-                <th>Ngôn ngữ</th>
-                <th>Vai trò</th>
-                <th>Quyền hạn</th>
+                <th>{t('wsManage.colMember')}</th>
+                <th>{t('wsManage.colLanguage')}</th>
+                <th>{t('wsManage.colRole')}</th>
+                <th>{t('wsManage.colPermission')}</th>
                 <th></th>
               </tr>
             </thead>
@@ -286,14 +295,15 @@ export default function WorkspaceManagementPage() {
                   </td>
                   <td>
                     <select
-                      value={m.user.preferredLanguage || 'vi'}
+                      className="member-ui-lang-select"
+                      value={normalizeUILanguage(m.user.preferredLanguage)}
+                      title={t('wsManage.langGlobalHint')}
                       onChange={(e) =>
                         handleUpdateMember(m.userId, 'preferredLanguage', e.target.value)
                       }
                     >
-                      <option value="vi">Tiếng Việt</option>
-                      <option value="ja">日本語</option>
-                      <option value="en">English</option>
+                      <option value="vi">{t('settings.langVi')}</option>
+                      <option value="ja">{t('settings.langJa')}</option>
                     </select>
                   </td>
                   <td>
@@ -303,10 +313,11 @@ export default function WorkspaceManagementPage() {
                         handleUpdateMember(m.userId, 'roleId', Number(e.target.value))
                       }
                     >
-                      <option value={1}>Giám đốc</option>
-                      <option value={2}>Quản lý</option>
-                      <option value={3}>Nhân viên</option>
-                      <option value={4}>Khách</option>
+                      {ROLE_OPTIONS.map((roleId) => (
+                        <option key={roleId} value={roleId}>
+                          {t(`roles.${ROLE_I18N_KEYS[roleId]}`)}
+                        </option>
+                      ))}
                     </select>
                   </td>
                   <td>
@@ -316,16 +327,18 @@ export default function WorkspaceManagementPage() {
                         handleUpdateMember(m.userId, 'permission', e.target.value)
                       }
                     >
-                      <option value="admin">Admin</option>
-                      <option value="write">Ghi</option>
-                      <option value="read">Đọc</option>
+                      {PERMISSION_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {t(`wsManage.${opt.key}`)}
+                        </option>
+                      ))}
                     </select>
                   </td>
                   <td>
                     <button
                       className="btn-remove-member"
                       onClick={() => handleRemoveMember(m.userId)}
-                      title="Xóa thành viên"
+                      title={t('wsManage.removeMemberTitle')}
                     >
                       <i className="fas fa-trash" />
                     </button>
@@ -335,7 +348,7 @@ export default function WorkspaceManagementPage() {
               {members.length === 0 && (
                 <tr>
                   <td colSpan={5} className="empty-row">
-                    Chưa có thành viên nào.
+                    {t('wsManage.emptyMembers')}
                   </td>
                 </tr>
               )}
@@ -344,16 +357,15 @@ export default function WorkspaceManagementPage() {
         </div>
       </div>
 
-      {/* Card 3: Security */}
       <div className="manage-card">
         <h2 className="card-title">
-          <i className="fas fa-shield-alt" /> Bảo mật dữ liệu
+          <i className="fas fa-shield-alt" /> {t('wsManage.securityTitle')}
         </h2>
         <div className="security-list">
           <div className="security-item">
             <div>
-              <span className="security-label">Mã hóa dữ liệu</span>
-              <span className="security-desc">Mã hóa toàn bộ dữ liệu trong workspace</span>
+              <span className="security-label">{t('wsManage.encryption')}</span>
+              <span className="security-desc">{t('wsManage.encryptionDesc')}</span>
             </div>
             <label className="toggle-switch">
               <input
@@ -366,8 +378,8 @@ export default function WorkspaceManagementPage() {
           </div>
           <div className="security-item">
             <div>
-              <span className="security-label">Giới hạn chia sẻ file</span>
-              <span className="security-desc">Hạn chế tải lên và chia sẻ file ra ngoài</span>
+              <span className="security-label">{t('wsManage.fileSharingLimits')}</span>
+              <span className="security-desc">{t('wsManage.fileSharingDesc')}</span>
             </div>
             <label className="toggle-switch">
               <input
@@ -380,8 +392,8 @@ export default function WorkspaceManagementPage() {
           </div>
           <div className="security-item">
             <div>
-              <span className="security-label">Tự động xóa lịch sử</span>
-              <span className="security-desc">Xóa lịch sử chat sau 90 ngày</span>
+              <span className="security-label">{t('wsManage.autoDeleteHistory')}</span>
+              <span className="security-desc">{t('wsManage.autoDeleteDesc')}</span>
             </div>
             <label className="toggle-switch">
               <input
@@ -395,7 +407,6 @@ export default function WorkspaceManagementPage() {
         </div>
       </div>
 
-      {/* Add Member Modal */}
       {showAddModal && (
         <div
           className="ws-modal-overlay"
@@ -406,7 +417,7 @@ export default function WorkspaceManagementPage() {
         >
           <div className="ws-modal ws-modal-add-member" onClick={(e) => e.stopPropagation()}>
             <div className="ws-modal-header">
-              <h2>Thêm thành viên</h2>
+              <h2>{t('wsManage.addMemberModal')}</h2>
               <button
                 type="button"
                 className="modal-close"
@@ -427,7 +438,7 @@ export default function WorkspaceManagementPage() {
                   aria-expanded={showUserPicker}
                 >
                   <i className={`fas fa-chevron-${showUserPicker ? 'up' : 'down'}`} />
-                  Chọn nhanh từ hệ thống
+                  {t('wsManage.quickPick')}
                   {availableUsers.length > 0 && (
                     <span className="quick-pick-count">{availableUsers.length}</span>
                   )}
@@ -436,14 +447,12 @@ export default function WorkspaceManagementPage() {
                   <div className="user-pick-list-wrap">
                     {loadingAvailable ? (
                       <p className="user-pick-hint">
-                        <i className="fas fa-spinner fa-spin" /> Đang tải danh sách...
+                        <i className="fas fa-spinner fa-spin" /> {t('wsManage.loadingUsers')}
                       </p>
                     ) : availableUsers.length === 0 ? (
-                      <p className="user-pick-hint">
-                        Tất cả tài khoản trong hệ thống đã có trong workspace này.
-                      </p>
+                      <p className="user-pick-hint">{t('wsManage.allUsersInWs')}</p>
                     ) : (
-                      <ul className="user-pick-list" role="listbox" aria-label="Chọn thành viên">
+                      <ul className="user-pick-list" role="listbox" aria-label={t('wsManage.pickMemberAria')}>
                         {availableUsers.map((u) => (
                           <li key={u.id}>
                             <button
@@ -463,10 +472,10 @@ export default function WorkspaceManagementPage() {
                 )}
               </div>
               <div className="form-divider">
-                <span>hoặc nhập thủ công</span>
+                <span>{t('wsManage.orManual')}</span>
               </div>
               <div className="form-group">
-                <label htmlFor="mem-email">Email *</label>
+                <label htmlFor="mem-email">{t('common.email')} *</label>
                 <input
                   id="mem-email"
                   type="email"
@@ -479,11 +488,11 @@ export default function WorkspaceManagementPage() {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="mem-name">Tên</label>
+                <label htmlFor="mem-name">{t('wsManage.memberName')}</label>
                 <input
                   id="mem-name"
                   type="text"
-                  placeholder="Tên thành viên"
+                  placeholder={t('wsManage.memberNamePlaceholder')}
                   value={newName}
                   onChange={(e) => {
                     setNewName(e.target.value);
@@ -493,42 +502,33 @@ export default function WorkspaceManagementPage() {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="mem-lang">Ngôn ngữ</label>
-                  <select
-                    id="mem-lang"
-                    value={newLanguage}
-                    onChange={(e) => setNewLanguage(e.target.value)}
-                  >
-                    <option value="vi">Tiếng Việt</option>
-                    <option value="ja">日本語</option>
-                    <option value="en">English</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="mem-role">Vai trò</label>
+                  <label htmlFor="mem-role">{t('wsManage.colRole')}</label>
                   <select
                     id="mem-role"
                     value={newRole}
                     onChange={(e) => setNewRole(Number(e.target.value))}
                   >
-                    <option value={1}>Giám đốc</option>
-                    <option value={2}>Quản lý</option>
-                    <option value={3}>Nhân viên</option>
-                    <option value={4}>Khách</option>
+                    {ROLE_OPTIONS.map((roleId) => (
+                      <option key={roleId} value={roleId}>
+                        {t(`roles.${ROLE_I18N_KEYS[roleId]}`)}
+                      </option>
+                    ))}
                   </select>
                 </div>
-              </div>
-              <div className="form-group">
-                <label htmlFor="mem-perm">Quyền hạn</label>
-                <select
-                  id="mem-perm"
-                  value={newPermission}
-                  onChange={(e) => setNewPermission(e.target.value)}
-                >
-                  <option value="admin">Admin</option>
-                  <option value="write">Ghi</option>
-                  <option value="read">Đọc</option>
-                </select>
+                <div className="form-group">
+                  <label htmlFor="mem-perm">{t('wsManage.colPermission')}</label>
+                  <select
+                    id="mem-perm"
+                    value={newPermission}
+                    onChange={(e) => setNewPermission(e.target.value)}
+                  >
+                    {PERMISSION_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {t(`wsManage.${opt.key}`)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div className="modal-actions">
                 <button
@@ -539,10 +539,10 @@ export default function WorkspaceManagementPage() {
                     resetAddMemberForm();
                   }}
                 >
-                  Hủy
+                  {t('common.cancel')}
                 </button>
                 <button type="submit" className="btn-save" disabled={adding}>
-                  {adding ? 'Đang thêm...' : 'Thêm thành viên'}
+                  {adding ? t('wsManage.adding') : t('wsManage.addMember')}
                 </button>
               </div>
             </form>

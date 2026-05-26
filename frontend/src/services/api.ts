@@ -77,6 +77,11 @@ export const messageAPI = {
   markChannelRead: (channelId: string) => api.post(`/messages/read/channel/${channelId}`),
   markDmRead: (workspaceId: string, peerUserId: string) =>
     api.post(`/messages/read/dm/${workspaceId}/${peerUserId}`),
+  updateState: (
+    targetType: 'channel' | 'dm',
+    targetId: string,
+    data: { isPinned?: boolean; isHidden?: boolean },
+  ) => api.patch(`/messages/state/${targetType}/${targetId}`, data),
 };
 
 // Task
@@ -109,7 +114,7 @@ export const aiAPI = {
     api.post('/ai/translate', data),
   decodeIntent: (data: { text: string; language?: string }) =>
     api.post('/ai/decode-intent', data),
-  summarize: (data: { messages: any[]; type?: string }) =>
+  summarize: (data: { messages?: any[]; type?: string; text?: string }) =>
     api.post('/ai/summarize', data),
   suggest: (data: { text: string; context?: string; targetLanguage?: string }) =>
     api.post('/ai/suggest', data),
@@ -119,6 +124,7 @@ export const aiAPI = {
 export const dashboardAPI = {
   getWorkspaceStats: (workspaceId: string) =>
     api.get(`/dashboard/workspace/${workspaceId}`),
+  getAllStats: () => api.get('/dashboard/all'),
 };
 
 // Search

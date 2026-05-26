@@ -2,18 +2,31 @@ import { create } from 'zustand';
 import { Workspace } from '../types';
 import { workspaceAPI } from '../services/api';
 
+export type DashboardScope = 'current' | 'all';
+
 interface WorkspaceState {
   workspaces: Workspace[];
   currentWorkspace: Workspace | null;
+  dashboardScope: DashboardScope;
   isLoading: boolean;
   hasFetched: boolean;
   fetchWorkspaces: () => Promise<void>;
   setCurrentWorkspace: (ws: Workspace) => void;
+  setDashboardScope: (scope: DashboardScope) => void;
 }
+
+const readDashboardScope = (): DashboardScope => {
+  try {
+    return localStorage.getItem('dashboardScope') === 'all' ? 'all' : 'current';
+  } catch {
+    return 'current';
+  }
+};
 
 export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   workspaces: [],
   currentWorkspace: null,
+  dashboardScope: readDashboardScope(),
   isLoading: false,
   hasFetched: false,
 
@@ -31,7 +44,13 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
         current = workspaces[0];
         localStorage.setItem('currentWorkspaceId', current.id);
       }
-      set({ workspaces, currentWorkspace: current, isLoading: false, hasFetched: true });
+      set({
+        workspaces,
+        currentWorkspace: current,
+        dashboardScope: readDashboardScope(),
+        isLoading: false,
+        hasFetched: true,
+      });
     } catch {
       set({ isLoading: false, hasFetched: true });
     }
@@ -39,6 +58,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
 
   setCurrentWorkspace: (ws) => {
     localStorage.setItem('currentWorkspaceId', ws.id);
-    set({ currentWorkspace: ws });
+    set({ currentWorkspace: ws, dashboardScope: 'current' });
+    localStorage.setItem('dashboardScope', 'current');
+  },
+
+  setDashboardScope: (scope) => {
+    localStorage.setItem('dashboardScope', scope);
+    set({ dashboardScope: scope });
   },
 }));

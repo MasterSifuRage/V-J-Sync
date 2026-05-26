@@ -1,24 +1,29 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useAuthStore } from '../../store/authStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
-import { taskAPI } from '../../services/api';
+import { taskAPI, aiAPI } from '../../services/api';
 import { canCreateTask, isEmployee } from '../../lib/workspaceRole';
-import { Task } from '../../types';
+import { uiDateLocale } from '../../lib/dateLocale';
+import {
+  detectTextLang,
+  isValidTranslation,
+  translationPair,
+  type ContentLang,
+} from '../../lib/textLang';
+import { useTranslateTarget } from '../../hooks/useTranslateTarget';
+import { Task, TaskComment } from '../../types';
 import UserAvatar from '../../components/common/UserAvatar';
+import {
+  TaskTranslationBlock,
+  taskShortId,
+  fetchTranslation,
+} from './taskDetailHelpers';
 import './TaskDetailPage.css';
 
-const STATUS_LABELS: Record<string, string> = {
-  todo: 'Cần làm',
-  in_progress: 'Đang xử lý',
-  review: 'Chờ đánh giá',
-  done: 'Hoàn thành',
-};
-
-const PRIORITY_LABELS: Record<string, string> = {
-  normal: 'Bình thường',
-  high: 'Cao',
-  urgent: 'Khẩn cấp',
-};
+const STATUS_OPTIONS = ['todo', 'in_progress', 'review', 'done'] as const;
+const EMPLOYEE_STATUS_OPTIONS = ['todo', 'in_progress', 'review'] as const;
 
 function getTagClass(tag: string): string {
   const lower = tag.toLowerCase();
@@ -28,27 +33,13 @@ function getTagClass(tag: string): string {
   return 'tag-default';
 }
 
-function formatDateTime(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function formatDate(dateStr?: string): string {
-  if (!dateStr) return 'Chưa đặt';
-  return new Date(dateStr).toLocaleDateString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+function DescriptionText({ text }: { text: string }) {
+  return <div className="task-description-content">{text}</div>;
 }
 
 export default function TaskDetailPage() {
+  const { t, i18n } = useTranslation();
+  const { user } = useAuthStore();
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
   const { currentWorkspace } = useWorkspaceStore();
@@ -60,6 +51,37 @@ export default function TaskDetailPage() {
   const [comment, setComment] = useState('');
   const [sendingComment, setSendingComment] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [commentExpanded, setCommentExpanded] = useState<Record<string, boolean>>({});
+  const [commentTranslations, setCommentTranslations] = useState<Record<string, string>>({});
+  const [commentTranslating, setCommentTranslating] = useState<Record<string, boolean>>({});
+  const translateTarget = useTranslateTarget();
+  const [summaryTranslation, setSummaryTranslation] = useState<string | null>(null);
+  const [descTranslation, setDescTranslation] = useState<string | null>(null);
+  const [translationLoading, setTranslationLoading] = useState(false);
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
+  const [descExpanded, setDescExpanded] = useState(false);
+  const [summaryTranslating, setSummaryTranslating] = useState(false);
+  const [descTranslating, setDescTranslating] = useState(false);
+
+  const dateLocale = uiDateLocale(i18n.language);
+
+  const formatDateTime = (dateStr: string) =>
+    new Date(dateStr).toLocaleDateString(dateLocale, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return t('common.notSet');
+    return new Date(dateStr).toLocaleDateString(dateLocale, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
 
   const fetchTask = async () => {
     if (!taskId) return;
@@ -74,8 +96,161 @@ export default function TaskDetailPage() {
   };
 
   useEffect(() => {
+    setLoading(true);
+    setCommentExpanded({});
+    setCommentTranslations({});
+    setSummaryExpanded(false);
+    setDescExpanded(false);
+    setSummaryTranslation(null);
+    setDescTranslation(null);
     fetchTask();
   }, [taskId]);
+
+  useEffect(() => {
+    if (!task?.description?.trim() || !task.autoTranslateJa) {
+      setSummaryTranslation(null);
+      setDescTranslation(null);
+      setTranslationLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const description = task.description!.trim();
+    const loadTranslations = async () => {
+      const target = translateTarget;
+      const summaryText = task.summary ?? null;
+      const summaryLang: ContentLang = 'vi';
+      const descLang = detectTextLang(description);
+
+      const summaryPair = translationPair(summaryLang, target);
+      const descPair = translationPair(descLang, target);
+
+      if (!summaryPair && !descPair) {
+        setSummaryTranslation(null);
+        setDescTranslation(null);
+        return;
+      }
+
+      setTranslationLoading(true);
+
+      const fetchIfNeeded = async (
+        text: string | null | undefined,
+        pair: { from: ContentLang; to: ContentLang } | null,
+        stored?: string | null,
+      ): Promise<string | null> => {
+        if (!text?.trim() || !pair) return null;
+        const cached = stored?.trim() && isValidTranslation(stored, pair.to) ? stored.trim() : null;
+        if (cached) return cached;
+        return fetchTranslation(text, pair.from, pair.to, aiAPI.translate);
+      };
+
+      try {
+        const [sTrans, dTrans] = await Promise.all([
+          fetchIfNeeded(
+            summaryText,
+            summaryPair,
+            target === 'ja' ? task.summaryJa : undefined,
+          ),
+          fetchIfNeeded(
+            description,
+            descPair,
+            target === 'ja' ? task.descriptionJa : undefined,
+          ),
+        ]);
+        if (!cancelled) {
+          setSummaryTranslation(sTrans);
+          setDescTranslation(dTrans);
+        }
+      } finally {
+        if (!cancelled) setTranslationLoading(false);
+      }
+    };
+
+    void loadTranslations();
+    return () => {
+      cancelled = true;
+    };
+  }, [task, translateTarget]);
+
+  const toggleSummaryTranslate = async () => {
+    if (!task) return;
+    if (summaryExpanded) {
+      setSummaryExpanded(false);
+      return;
+    }
+    const summaryText = task.summary ?? null;
+    if (!summaryText?.trim()) return;
+    const pair = translationPair('vi', translateTarget);
+    if (!pair) return;
+
+    const cached =
+      summaryTranslation ??
+      (translateTarget === 'ja' ? task.summaryJa?.trim() : undefined);
+    if (cached && isValidTranslation(cached, translateTarget)) {
+      setSummaryTranslation(cached);
+      setSummaryExpanded(true);
+      return;
+    }
+
+    setSummaryTranslating(true);
+    const translated = await fetchTranslation(summaryText, pair.from, pair.to, aiAPI.translate);
+    setSummaryTranslating(false);
+    if (translated) {
+      setSummaryTranslation(translated);
+      setSummaryExpanded(true);
+    }
+  };
+
+  const toggleDescTranslate = async () => {
+    if (!task?.description?.trim()) return;
+    if (descExpanded) {
+      setDescExpanded(false);
+      return;
+    }
+    const description = task.description.trim();
+    const pair = translationPair(detectTextLang(description), translateTarget);
+    if (!pair) return;
+
+    const cached =
+      descTranslation ??
+      (translateTarget === 'ja' ? task.descriptionJa?.trim() : undefined);
+    if (cached && isValidTranslation(cached, translateTarget)) {
+      setDescTranslation(cached);
+      setDescExpanded(true);
+      return;
+    }
+
+    setDescTranslating(true);
+    const translated = await fetchTranslation(description, pair.from, pair.to, aiAPI.translate);
+    setDescTranslating(false);
+    if (translated) {
+      setDescTranslation(translated);
+      setDescExpanded(true);
+    }
+  };
+
+  const renderTranslateButton = (
+    expanded: boolean,
+    translating: boolean,
+    onClick: () => void,
+    canTranslate: boolean,
+  ) => {
+    if (!canTranslate) return null;
+    return (
+      <div className="task-content-actions">
+        <button
+          type="button"
+          className="comment-translate-btn"
+          disabled={translating}
+          onClick={() => void onClick()}
+        >
+          <i className={`fas ${translating ? 'fa-spinner fa-spin' : 'fa-language'}`} />
+          {translating ? t('common.loading') : expanded ? t('chat.hideTranslate') : t('chat.translate')}
+        </button>
+      </div>
+    );
+  };
 
   const handleAddComment = async () => {
     if (!taskId || !comment.trim()) return;
@@ -106,7 +281,7 @@ export default function TaskDetailPage() {
 
   const handleDelete = async () => {
     if (!taskId) return;
-    if (!window.confirm('Bạn có chắc muốn xóa công việc này?')) return;
+    if (!window.confirm(t('tasks.confirmDelete'))) return;
     setActionLoading(true);
     try {
       await taskAPI.delete(taskId);
@@ -116,212 +291,366 @@ export default function TaskDetailPage() {
     }
   };
 
+  const getCommentTranslationTarget = (content: string): { from: ContentLang; to: ContentLang } | null => {
+    const sourceLang = detectTextLang(content);
+    return translationPair(sourceLang, translateTarget);
+  };
+
+  const toggleCommentTranslate = async (c: TaskComment) => {
+    if (commentExpanded[c.id]) {
+      setCommentExpanded((prev) => ({ ...prev, [c.id]: false }));
+      return;
+    }
+
+    const cached = commentTranslations[c.id] ?? c.translatedContent?.trim();
+    if (cached && isValidTranslation(cached, translateTarget)) {
+      setCommentTranslations((prev) => ({ ...prev, [c.id]: cached }));
+      setCommentExpanded((prev) => ({ ...prev, [c.id]: true }));
+      return;
+    }
+
+    setCommentTranslating((prev) => ({ ...prev, [c.id]: true }));
+    const pair = getCommentTranslationTarget(c.content);
+    if (!pair) {
+      setCommentTranslating((prev) => ({ ...prev, [c.id]: false }));
+      return;
+    }
+    const translated = await fetchTranslation(c.content, pair.from, pair.to, aiAPI.translate);
+    setCommentTranslating((prev) => ({ ...prev, [c.id]: false }));
+    if (translated) {
+      setCommentTranslations((prev) => ({ ...prev, [c.id]: translated }));
+      setCommentExpanded((prev) => ({ ...prev, [c.id]: true }));
+    }
+  };
+
+  const renderComment = (c: TaskComment) => {
+    const isYou = c.userId === user?.id;
+    const expanded = !!commentExpanded[c.id];
+    const translation = commentTranslations[c.id] ?? c.translatedContent?.trim();
+    const translating = !!commentTranslating[c.id];
+    const pair = getCommentTranslationTarget(c.content);
+    const canTranslate = !!pair;
+
+    return (
+      <div className="comment-item" key={c.id}>
+        <UserAvatar
+          name={c.user.name}
+          avatarUrl={c.user.avatarUrl}
+          size="md"
+          className="comment-avatar"
+        />
+        <div className="comment-body">
+          <div className="comment-header">
+            <span className="comment-author">
+              {c.user.name}
+              {isYou ? ` ${t('common.you')}` : ''}
+            </span>
+            <span className="comment-time">{formatDateTime(c.createdAt)}</span>
+          </div>
+          <div className="comment-content">{c.content}</div>
+          <div className="comment-actions">
+            {canTranslate && (
+              <button
+                type="button"
+                className="comment-translate-btn"
+                disabled={translating}
+                onClick={() => void toggleCommentTranslate(c)}
+              >
+                <i className={`fas ${translating ? 'fa-spinner fa-spin' : 'fa-language'}`} />
+                {translating
+                  ? t('common.loading')
+                  : expanded
+                    ? t('chat.hideTranslate')
+                    : t('chat.translate')}
+              </button>
+            )}
+          </div>
+          {expanded && translation && isValidTranslation(translation, translateTarget) && (
+            <TaskTranslationBlock variant={translateTarget}>
+              <DescriptionText text={translation} />
+            </TaskTranslationBlock>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const displaySummary = task?.summary ?? null;
+  const autoTranslateEnabled = !!task?.autoTranslateJa;
+  const summaryNeedsTranslation = !!displaySummary && !!translationPair('vi', translateTarget);
+  const descNeedsTranslation =
+    !!task?.description && !!translationPair(detectTextLang(task.description), translateTarget);
+  const aiLoading = loading || (autoTranslateEnabled && translationLoading);
+  const showSummaryTranslation = autoTranslateEnabled
+    ? !!summaryTranslation
+    : summaryExpanded && !!summaryTranslation;
+  const showDescTranslation = autoTranslateEnabled
+    ? !!descTranslation
+    : descExpanded && !!descTranslation;
+
+  const renderTranslationBlock = (text: string | null) => {
+    if (!text?.trim()) return null;
+    return (
+      <TaskTranslationBlock variant={translateTarget}>
+        <DescriptionText text={text} />
+      </TaskTranslationBlock>
+    );
+  };
+
   if (loading) {
-    return <div className="task-detail-loading">Đang tải chi tiết...</div>;
+    return <div className="task-detail-loading">{t('tasks.detailLoading')}</div>;
   }
 
   if (!task) {
-    return <div className="task-detail-loading">Không tìm thấy công việc.</div>;
+    return <div className="task-detail-loading">{t('tasks.notFound')}</div>;
   }
 
   return (
     <div className="task-detail-page">
       <div className="task-detail-breadcrumb">
-        <Link to="/tasks">Công việc</Link>
+        <Link to="/tasks">{t('tasks.breadcrumb')}</Link>
         <span className="separator">&gt;</span>
-        <span>{task.title}</span>
+        <span>{t('tasks.details')}</span>
       </div>
 
-      {/* Header */}
       <div className="task-detail-header">
-        <div className="task-detail-title-row">
+        <div className="task-detail-title-block">
+          <div className="task-detail-id">{taskShortId(task.id)}</div>
           <h1 className="task-detail-title">{task.title}</h1>
-          <div className="task-detail-badges">
-            <span className={`badge badge-${task.status}`}>
-              {STATUS_LABELS[task.status]}
-            </span>
-            <span className={`badge badge-${task.priority}`}>
-              {PRIORITY_LABELS[task.priority]}
-            </span>
-          </div>
+        </div>
+        <div className="task-detail-badges">
+          <span className={`badge badge-${task.status}`}>
+            {t(`taskStatus.${task.status}`)}
+          </span>
+          <span className={`badge badge-${task.priority}`}>
+            {t(`taskPriority.${task.priority}`)}
+          </span>
         </div>
       </div>
 
-      {/* Description */}
-      <div className="task-detail-card">
-        <h3>Mô tả</h3>
-        {task.description ? (
-          <div className="task-description-content">{task.description}</div>
-        ) : (
-          <div className="task-description-empty">Chưa có mô tả cho công việc này.</div>
-        )}
-      </div>
+      <div className="task-detail-layout">
+        <div className="task-detail-main">
+          {task.description && (
+            <>
+              <div className="task-detail-card">
+                <h3 className="section-title">
+                  <i className="fas fa-file-alt" /> {t('tasks.summaryTitle')}
+                </h3>
+                {aiLoading && !displaySummary ? (
+                  <div className="task-ai-loading">
+                    <i className="fas fa-spinner fa-spin" /> {t('tasks.aiProcessing')}
+                  </div>
+                ) : displaySummary ? (
+                  <>
+                    <DescriptionText text={displaySummary} />
+                    {!autoTranslateEnabled &&
+                      renderTranslateButton(
+                        summaryExpanded,
+                        summaryTranslating,
+                        toggleSummaryTranslate,
+                        summaryNeedsTranslation,
+                      )}
+                    {summaryNeedsTranslation && showSummaryTranslation
+                      ? renderTranslationBlock(summaryTranslation)
+                      : summaryNeedsTranslation && autoTranslateEnabled && translationLoading ? (
+                        <div className="task-ai-loading task-ai-loading--inline">
+                          <i className="fas fa-spinner fa-spin" /> {t('tasks.aiProcessing')}
+                        </div>
+                      ) : null}
+                  </>
+                ) : (
+                  <div className="task-description-empty">{t('tasks.noSummary')}</div>
+                )}
+              </div>
 
-      {/* Meta */}
-      <div className="task-detail-card">
-        <h3>Thông tin chi tiết</h3>
-        <div className="task-meta-grid">
-          <div className="task-meta-item">
-            <span className="meta-label">Người thực hiện</span>
-            <div className="meta-value">
-              {task.assignee ? (
+              <div className="task-detail-card">
+                <h3 className="section-title">
+                  <i className="fas fa-align-left" /> {t('tasks.detailDescription')}
+                </h3>
+                <DescriptionText text={task.description} />
+                {!autoTranslateEnabled &&
+                  renderTranslateButton(
+                    descExpanded,
+                    descTranslating,
+                    toggleDescTranslate,
+                    descNeedsTranslation,
+                  )}
+                {descNeedsTranslation && showDescTranslation
+                  ? renderTranslationBlock(descTranslation)
+                  : descNeedsTranslation && autoTranslateEnabled && translationLoading ? (
+                    <div className="task-ai-loading task-ai-loading--inline">
+                      <i className="fas fa-spinner fa-spin" /> {t('tasks.aiProcessing')}
+                    </div>
+                  ) : null}
+              </div>
+            </>
+          )}
+
+          {!task.description && (
+            <div className="task-detail-card">
+              <h3 className="section-title">
+                <i className="fas fa-align-left" /> {t('tasks.detailDescription')}
+              </h3>
+              <div className="task-description-empty">{t('tasks.noDescription')}</div>
+            </div>
+          )}
+
+          <div className="task-detail-card">
+            <h3 className="section-title">
+              <i className="fas fa-comments" />{' '}
+              {t('tasks.discussion', { count: task.comments?.length ?? 0 })}
+            </h3>
+            <div className="comments-section">
+              {task.comments && task.comments.length > 0 ? (
+                <div className="comment-list">{task.comments.map(renderComment)}</div>
+              ) : (
+                <div className="comments-empty">{t('tasks.noComments')}</div>
+              )}
+
+              <div className="comment-form">
+                <UserAvatar
+                  name={user?.name}
+                  avatarUrl={user?.avatarUrl}
+                  size="md"
+                  className="comment-avatar"
+                />
+                <textarea
+                  className="comment-input"
+                  placeholder={t('tasks.commentPlaceholderAi')}
+                  rows={2}
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleAddComment();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn-send-comment btn-send-icon"
+                  disabled={!comment.trim() || sendingComment}
+                  onClick={handleAddComment}
+                  title={t('common.send')}
+                >
+                  <i className="fas fa-paper-plane" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside className="task-detail-sidebar">
+          <div className="task-info-panel">
+            <div className="task-meta-item">
+              <span className="meta-label">{t('tasks.assignee')}</span>
+              <div className="meta-value">
+                {task.assignee ? (
+                  <div className="meta-user">
+                    <UserAvatar
+                      name={task.assignee.name}
+                      avatarUrl={task.assignee.avatarUrl}
+                      size="sm"
+                      className="avatar-sm"
+                    />
+                    <span>{task.assignee.name}</span>
+                  </div>
+                ) : (
+                  <span className="meta-empty">{t('tasks.unassigned')}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="task-meta-item">
+              <span className="meta-label">{t('tasks.creator')}</span>
+              <div className="meta-value">
                 <div className="meta-user">
                   <UserAvatar
-                    name={task.assignee.name}
-                    avatarUrl={task.assignee.avatarUrl}
+                    name={task.creator.name}
+                    avatarUrl={task.creator.avatarUrl}
                     size="sm"
                     className="avatar-sm"
                   />
-                  <span>{task.assignee.name}</span>
+                  <span>{task.creator.name}</span>
                 </div>
-              ) : (
-                <span style={{ color: '#94a3b8' }}>Chưa giao</span>
+              </div>
+            </div>
+
+            <div className="task-meta-item">
+              <span className="meta-label">{t('tasks.dueDate')}</span>
+              <span className="meta-value">{formatDate(task.dueDate)}</span>
+            </div>
+
+            <div className="task-meta-item">
+              <span className="meta-label">{t('tasks.createdAt')}</span>
+              <span className="meta-value">{formatDateTime(task.createdAt)}</span>
+            </div>
+
+            {task.tags.length > 0 && (
+              <div className="task-meta-item">
+                <span className="meta-label">{t('common.tags')}</span>
+                <div className="meta-tags">
+                  {task.tags.map((tag) => (
+                    <span key={tag} className={`tag ${getTagClass(tag)}`}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="task-sidebar-actions">
+              {employeeView ? (
+                <div className="task-employee-status-form">
+                  <label htmlFor="task-status-select">{t('tasks.updateProgress')}</label>
+                  {task.status === 'done' ? (
+                    <p className="task-progress-locked">{t('tasks.progressLocked')}</p>
+                  ) : (
+                    <select
+                      id="task-status-select"
+                      value={task.status}
+                      disabled={actionLoading}
+                      onChange={(e) => handleStatusChange(e.target.value)}
+                    >
+                      {EMPLOYEE_STATUS_OPTIONS.map((key) => (
+                        <option key={key} value={key}>
+                          {t(`taskStatus.${key}`)}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              ) : canManageTask ? (
+                <div className="task-employee-status-form">
+                  <label htmlFor="task-status-select">{t('tasks.updateProgress')}</label>
+                  <select
+                    id="task-status-select"
+                    value={task.status}
+                    disabled={actionLoading}
+                    onChange={(e) => handleStatusChange(e.target.value)}
+                  >
+                    {STATUS_OPTIONS.map((key) => (
+                      <option key={key} value={key}>
+                        {t(`taskStatus.${key}`)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+              {canManageTask && (
+                <button
+                  type="button"
+                  className="btn-delete btn-sidebar"
+                  onClick={handleDelete}
+                  disabled={actionLoading}
+                >
+                  <i className="fas fa-trash" /> {t('common.delete')}
+                </button>
               )}
             </div>
           </div>
-
-          <div className="task-meta-item">
-            <span className="meta-label">Người tạo</span>
-            <div className="meta-value">
-              <div className="meta-user">
-                <UserAvatar
-                  name={task.creator.name}
-                  avatarUrl={task.creator.avatarUrl}
-                  size="sm"
-                  className="avatar-sm"
-                />
-                <span>{task.creator.name}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="task-meta-item">
-            <span className="meta-label">Hạn hoàn thành</span>
-            <span className="meta-value">{formatDate(task.dueDate)}</span>
-          </div>
-
-          <div className="task-meta-item">
-            <span className="meta-label">Ngày tạo</span>
-            <span className="meta-value">{formatDateTime(task.createdAt)}</span>
-          </div>
-
-          {task.tags.length > 0 && (
-            <div className="task-meta-item" style={{ gridColumn: '1 / -1' }}>
-              <span className="meta-label">Tags</span>
-              <div className="meta-tags">
-                {task.tags.map((tag) => (
-                  <span key={tag} className={`tag ${getTagClass(tag)}`}>
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Comments */}
-      <div className="task-detail-card">
-        <h3>Bình luận ({task.comments?.length ?? 0})</h3>
-        <div className="comments-section">
-          {task.comments && task.comments.length > 0 ? (
-            <div className="comment-list">
-              {task.comments.map((c) => (
-                <div className="comment-item" key={c.id}>
-                  <UserAvatar
-                    name={c.user.name}
-                    avatarUrl={c.user.avatarUrl}
-                    size="md"
-                    className="comment-avatar"
-                  />
-                  <div className="comment-body">
-                    <div className="comment-header">
-                      <span className="comment-author">{c.user.name}</span>
-                      <span className="comment-time">{formatDateTime(c.createdAt)}</span>
-                    </div>
-                    <div className="comment-content">{c.content}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="comments-empty">Chưa có bình luận nào.</div>
-          )}
-
-          <div className="comment-form">
-            <textarea
-              className="comment-input"
-              placeholder="Viết bình luận..."
-              rows={2}
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleAddComment();
-                }
-              }}
-            />
-            <button
-              className="btn-send-comment"
-              disabled={!comment.trim() || sendingComment}
-              onClick={handleAddComment}
-            >
-              {sendingComment ? 'Gửi...' : 'Gửi'}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Actions */}
-      <div className="task-detail-actions">
-        {employeeView ? (
-          <div className="task-employee-status-form">
-            <label htmlFor="task-status-select">Cập nhật tiến độ</label>
-            <select
-              id="task-status-select"
-              value={task.status}
-              disabled={actionLoading}
-              onChange={(e) => handleStatusChange(e.target.value)}
-            >
-              <option value="todo">Cần làm</option>
-              <option value="in_progress">Đang xử lý</option>
-              <option value="review">Chờ đánh giá</option>
-              <option value="done">Hoàn thành</option>
-            </select>
-          </div>
-        ) : (
-          <button
-            className={`btn-complete ${task.status === 'done' ? 'already-done' : ''}`}
-            disabled={task.status === 'done' || actionLoading}
-            onClick={() => handleStatusChange('done')}
-          >
-            <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                fillRule="evenodd"
-                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                clipRule="evenodd"
-              />
-            </svg>
-            {task.status === 'done' ? 'Đã hoàn thành' : 'Đánh dấu hoàn thành'}
-          </button>
-        )}
-        {canManageTask && (
-          <button
-            className="btn-delete"
-            onClick={handleDelete}
-            disabled={actionLoading}
-          >
-            <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                fillRule="evenodd"
-                d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                clipRule="evenodd"
-              />
-            </svg>
-            Xóa
-          </button>
-        )}
+        </aside>
       </div>
     </div>
   );

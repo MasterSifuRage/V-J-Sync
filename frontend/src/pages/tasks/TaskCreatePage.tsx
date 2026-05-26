@@ -1,12 +1,17 @@
 import { useState, useEffect, type KeyboardEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { taskAPI, workspaceAPI } from '../../services/api';
 import { WorkspaceMember } from '../../types';
 import { ROLE } from '../../lib/workspaceRole';
 import './TaskCreatePage.css';
 
+const STATUS_OPTIONS = ['todo', 'in_progress', 'review', 'done'] as const;
+const PRIORITY_OPTIONS = ['normal', 'high', 'urgent'] as const;
+
 export default function TaskCreatePage() {
+  const { t } = useTranslation();
   const { currentWorkspace } = useWorkspaceStore();
   const navigate = useNavigate();
 
@@ -46,7 +51,7 @@ export default function TaskCreatePage() {
   };
 
   const removeTag = (tag: string) => {
-    setTags(tags.filter((t) => t !== tag));
+    setTags(tags.filter((item) => item !== tag));
   };
 
   const assignableMembers = members.filter((m) => m.roleId === ROLE.EMPLOYEE);
@@ -54,7 +59,7 @@ export default function TaskCreatePage() {
   const handleSubmit = async () => {
     if (!currentWorkspace || !title.trim()) return;
     if (!assigneeId) {
-      setError('Vui lòng chọn nhân viên được giao việc.');
+      setError(t('tasks.assigneeRequired'));
       return;
     }
     setSubmitting(true);
@@ -71,45 +76,47 @@ export default function TaskCreatePage() {
         autoTranslate,
       });
       navigate('/tasks');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Không thể tạo công việc. Vui lòng thử lại.');
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        t('tasks.createError');
+      setError(message);
     } finally {
       setSubmitting(false);
     }
   };
 
   if (!currentWorkspace) {
-    return <div className="task-list-loading">Vui lòng chọn một workspace trước.</div>;
+    return <div className="task-list-loading">{t('common.selectWorkspaceFirst')}</div>;
   }
 
   return (
     <div className="task-create-page">
       <div className="task-create-breadcrumb">
-        <Link to="/tasks">Công việc</Link>
+        <Link to="/tasks">{t('tasks.breadcrumb')}</Link>
         <span className="separator">&gt;</span>
-        <span>Tạo công việc mới</span>
+        <span>{t('tasks.createNew')}</span>
       </div>
 
       {error && <div className="task-create-error">{error}</div>}
 
       <div className="task-create-layout">
-        {/* Left card */}
         <div className="task-create-left">
-          <h2 className="section-title">Nội dung công việc</h2>
+          <h2 className="section-title">{t('tasks.contentSection')}</h2>
 
           <div className="form-group">
-            <label>Tiêu đề</label>
+            <label>{t('tasks.titleLabel')}</label>
             <input
               type="text"
               className="task-title-input"
-              placeholder="Nhập tiêu đề công việc..."
+              placeholder={t('tasks.titlePlaceholder')}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
           </div>
 
           <div className="form-group">
-            <label>Mô tả</label>
+            <label>{t('common.description')}</label>
             <div className="description-editor">
               <div className="description-toolbar">
                 <button type="button" title="Bold">
@@ -135,7 +142,7 @@ export default function TaskCreatePage() {
                     <line x1="3" y1="18" x2="3.01" y2="18" />
                   </svg>
                 </button>
-                <button type="button" title="Đính kèm">
+                <button type="button" title={t('tasks.attach')}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
                   </svg>
@@ -143,7 +150,7 @@ export default function TaskCreatePage() {
               </div>
               <textarea
                 className="description-textarea"
-                placeholder="Nhập mô tả chi tiết công việc..."
+                placeholder={t('tasks.descPlaceholder')}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
@@ -165,28 +172,28 @@ export default function TaskCreatePage() {
                 setAutoTranslate(e.target.checked);
               }}
             />
-            <span className="ai-label">Tự động dịch sang Tiếng Nhật</span>
+            <span className="ai-label">{t('tasks.autoTranslateJa')}</span>
           </label>
         </div>
 
-        {/* Right card */}
         <div className="task-create-right">
-          <h2 className="section-title">Cài đặt</h2>
+          <h2 className="section-title">{t('tasks.settingsSection')}</h2>
 
           <div className="form-group">
-            <label>Trạng thái</label>
+            <label>{t('tasks.statusLabel')}</label>
             <select value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="todo">Cần làm</option>
-              <option value="in_progress">Đang xử lý</option>
-              <option value="review">Chờ đánh giá</option>
-              <option value="done">Hoàn thành</option>
+              {STATUS_OPTIONS.map((key) => (
+                <option key={key} value={key}>
+                  {t(`taskStatus.${key}`)}
+                </option>
+              ))}
             </select>
           </div>
 
           <div className="form-group">
-            <label>Nhân viên được giao *</label>
+            <label>{t('tasks.assigneeLabel')}</label>
             <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)}>
-              <option value="">-- Chọn nhân viên --</option>
+              <option value="">{t('tasks.selectAssignee')}</option>
               {assignableMembers.map((m) => (
                 <option key={m.userId} value={m.userId}>
                   {m.user.name}
@@ -194,12 +201,12 @@ export default function TaskCreatePage() {
               ))}
             </select>
             {assignableMembers.length === 0 && (
-              <p className="form-hint">Chưa có nhân viên trong workspace. Admin cần thêm thành viên trước.</p>
+              <p className="form-hint">{t('tasks.noEmployeesHint')}</p>
             )}
           </div>
 
           <div className="form-group">
-            <label>Hạn hoàn thành</label>
+            <label>{t('tasks.dueDate')}</label>
             <input
               type="date"
               value={dueDate}
@@ -208,16 +215,18 @@ export default function TaskCreatePage() {
           </div>
 
           <div className="form-group">
-            <label>Độ ưu tiên</label>
+            <label>{t('tasks.priorityLabel')}</label>
             <select value={priority} onChange={(e) => setPriority(e.target.value)}>
-              <option value="normal">Bình thường</option>
-              <option value="high">Cao</option>
-              <option value="urgent">Khẩn cấp</option>
+              {PRIORITY_OPTIONS.map((key) => (
+                <option key={key} value={key}>
+                  {t(`taskPriority.${key}`)}
+                </option>
+              ))}
             </select>
           </div>
 
           <div className="form-group">
-            <label>Tags</label>
+            <label>{t('common.tags')}</label>
             <div className="tags-input-wrapper">
               {tags.map((tag) => (
                 <span key={tag} className="tag-chip">
@@ -229,7 +238,7 @@ export default function TaskCreatePage() {
               ))}
               <input
                 type="text"
-                placeholder={tags.length === 0 ? 'Nhập tag rồi nhấn Enter...' : ''}
+                placeholder={tags.length === 0 ? t('tasks.tagPlaceholder') : ''}
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={handleTagKeyDown}
@@ -241,14 +250,14 @@ export default function TaskCreatePage() {
 
       <div className="task-create-footer">
         <button className="btn-cancel" onClick={() => navigate('/tasks')}>
-          Hủy bỏ
+          {t('common.cancelAlt')}
         </button>
         <button
           className="btn-submit-task"
           disabled={!title.trim() || !assigneeId || submitting}
           onClick={handleSubmit}
         >
-          {submitting ? 'Đang tạo...' : 'Tạo công việc'}
+          {submitting ? t('common.creating') : t('tasks.submit')}
         </button>
       </div>
     </div>

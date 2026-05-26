@@ -47,7 +47,7 @@ export const register = async (req: Request, res: Response) => {
         department: data.department,
         preferredLanguage: data.preferredLanguage || 'vi',
       },
-      select: { id: true, name: true, email: true, preferredLanguage: true, department: true },
+      select: { id: true, name: true, email: true, preferredLanguage: true, translateToLanguage: true, department: true },
     });
 
     const token = generateToken(user.id);
@@ -101,6 +101,7 @@ export const login = async (req: Request, res: Response) => {
         name: user.name,
         email: user.email,
         preferredLanguage: user.preferredLanguage,
+        translateToLanguage: user.translateToLanguage,
         avatarUrl: user.avatarUrl,
         department: user.department,
       },
@@ -123,7 +124,7 @@ export const getMe = async (req: AuthRequest, res: Response) => {
     where: { id: req.user!.id },
     select: {
       id: true, name: true, email: true, avatarUrl: true,
-      preferredLanguage: true, department: true, phone: true, createdAt: true,
+      preferredLanguage: true, translateToLanguage: true, department: true, phone: true, createdAt: true,
     },
   });
   return res.json({ user });

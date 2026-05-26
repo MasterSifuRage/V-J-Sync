@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { workspaceAPI } from '../../services/api';
 import { Workspace } from '../../types';
@@ -7,6 +8,7 @@ import { canCreateWorkspace, canCreateTask } from '../../lib/workspaceRole';
 import './WorkspaceSelectPage.css';
 
 export default function WorkspaceSelectPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { workspaces, currentWorkspace, fetchWorkspaces, setCurrentWorkspace } =
     useWorkspaceStore();
@@ -46,19 +48,19 @@ export default function WorkspaceSelectPage() {
       setFormDesc('');
       setFormDept('');
     } catch {
-      setError('Không thể tạo workspace.');
+      setError(t('workspace.createError'));
     } finally {
       setCreating(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Bạn có chắc muốn xóa workspace này?')) return;
+    if (!window.confirm(t('workspace.confirmDelete'))) return;
     try {
       await workspaceAPI.delete(id);
       await fetchWorkspaces();
     } catch {
-      setError('Không thể xóa workspace.');
+      setError(t('workspace.deleteError'));
     }
   };
 
@@ -66,12 +68,12 @@ export default function WorkspaceSelectPage() {
     <div className="workspace-select-page">
       <div className="ws-header">
         <div>
-          <h1>Workspace của bạn</h1>
-          <p className="ws-subtitle">Chọn workspace để bắt đầu làm việc</p>
+          <h1>{t('workspace.title')}</h1>
+          <p className="ws-subtitle">{t('workspace.subtitle')}</p>
         </div>
         {allowCreateWorkspace && (
           <button className="btn-new-ws" onClick={() => setShowModal(true)}>
-            <i className="fas fa-plus" /> Tạo Workspace mới
+            <i className="fas fa-plus" /> {t('workspace.createNew')}
           </button>
         )}
       </div>
@@ -81,20 +83,18 @@ export default function WorkspaceSelectPage() {
       {loading ? (
         <div className="ws-loading">
           <i className="fas fa-spinner fa-spin" />
-          <p>Đang tải...</p>
+          <p>{t('common.loading')}</p>
         </div>
       ) : workspaces.length === 0 ? (
         <div className="ws-empty">
           <i className="fas fa-building" />
-          <p>Chưa có workspace nào.</p>
+          <p>{t('workspace.empty')}</p>
           {allowCreateWorkspace ? (
             <button className="btn-new-ws" onClick={() => setShowModal(true)}>
-              Tạo Workspace đầu tiên
+              {t('workspace.createFirst')}
             </button>
           ) : (
-            <p className="ws-empty-hint">
-              Liên hệ Giám đốc (Admin) để được mời vào workspace.
-            </p>
+            <p className="ws-empty-hint">{t('workspace.emptyHint')}</p>
           )}
         </div>
       ) : (
@@ -107,7 +107,7 @@ export default function WorkspaceSelectPage() {
               {ws.roleId === 1 && (
                 <button
                   className="ws-card-delete"
-                  title="Xóa workspace"
+                  title={t('workspace.deleteTitle')}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDelete(ws.id);
@@ -126,7 +126,7 @@ export default function WorkspaceSelectPage() {
               )}
               <div className="ws-card-meta">
                 <span>
-                  <i className="fas fa-users" /> {ws.memberCount ?? 0} thành viên
+                  <i className="fas fa-users" /> {t('common.membersCount', { count: ws.memberCount ?? 0 })}
                 </span>
                 {ws.department && (
                   <span>
@@ -136,7 +136,7 @@ export default function WorkspaceSelectPage() {
               </div>
               <div className="ws-card-actions">
                 <button type="button" className="btn-enter" onClick={() => handleEnter(ws)}>
-                  Vào Workspace
+                  {t('workspace.enter')}
                 </button>
                 {(ws.roleId === 1 || (canCreateTask(ws.roleId) && ws.roleId === 2)) && (
                   <div
@@ -150,7 +150,7 @@ export default function WorkspaceSelectPage() {
                         className="btn-manage"
                         onClick={() => navigate(`/workspaces/${ws.id}/manage`)}
                       >
-                        Quản lý WS
+                        {t('workspace.manageWs')}
                       </button>
                     )}
                     {canCreateTask(ws.roleId) && (ws.roleId === 1 || ws.roleId === 2) && (
@@ -162,7 +162,7 @@ export default function WorkspaceSelectPage() {
                           navigate('/tasks/create');
                         }}
                       >
-                        {ws.roleId === 1 ? 'Tạo công việc' : 'Giao việc'}
+                        {ws.roleId === 1 ? t('workspace.createTask') : t('workspace.assignTask')}
                       </button>
                     )}
                   </div>
@@ -173,53 +173,52 @@ export default function WorkspaceSelectPage() {
         </div>
       )}
 
-      {/* Create Modal */}
       {showModal && (
         <div className="ws-modal-overlay" onClick={() => setShowModal(false)}>
           <div className="ws-modal" onClick={(e) => e.stopPropagation()}>
             <div className="ws-modal-header">
-              <h2>Tạo Workspace mới</h2>
+              <h2>{t('workspace.modalTitle')}</h2>
               <button className="modal-close" onClick={() => setShowModal(false)}>
                 <i className="fas fa-times" />
               </button>
             </div>
             <form onSubmit={handleCreate}>
               <div className="form-group">
-                <label htmlFor="ws-name">Tên Workspace *</label>
+                <label htmlFor="ws-name">{t('workspace.nameLabel')}</label>
                 <input
                   id="ws-name"
                   type="text"
-                  placeholder="Nhập tên workspace..."
+                  placeholder={t('workspace.namePlaceholder')}
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="ws-desc">Mô tả</label>
+                <label htmlFor="ws-desc">{t('common.description')}</label>
                 <textarea
                   id="ws-desc"
-                  placeholder="Mô tả ngắn về workspace..."
+                  placeholder={t('workspace.descPlaceholder')}
                   rows={3}
                   value={formDesc}
                   onChange={(e) => setFormDesc(e.target.value)}
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="ws-dept">Phòng ban</label>
+                <label htmlFor="ws-dept">{t('workspace.deptLabel')}</label>
                 <input
                   id="ws-dept"
                   type="text"
-                  placeholder="VD: Kỹ thuật, Kinh doanh..."
+                  placeholder={t('workspace.deptPlaceholder')}
                   value={formDept}
                   onChange={(e) => setFormDept(e.target.value)}
                 />
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn-cancel" onClick={() => setShowModal(false)}>
-                  Hủy
+                  {t('common.cancelAlt')}
                 </button>
                 <button type="submit" className="btn-save" disabled={creating}>
-                  {creating ? 'Đang tạo...' : 'Tạo Workspace'}
+                  {creating ? t('common.creating') : t('workspace.createBtn')}
                 </button>
               </div>
             </form>

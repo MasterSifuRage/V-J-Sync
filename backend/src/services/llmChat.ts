@@ -1,52 +1,27 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { readOpenAIApiKey, withOpenAIRetries } from '../utils/openaiHttpError';
+import {
+  ollamaBaseUrl,
+  ollamaModel,
+  readGeminiApiKey,
+  resolveSummarizeProvider,
+  resolveTranslateProvider,
+  SummarizeProvider,
+} from './aiConfig';
+import { withLlmQueue } from './llmQueue';
 
-const GEMINI_PLACEHOLDER = 'your-google-ai-studio-api-key';
-
-function normalizeKey(raw: string | undefined): string | null {
-  if (raw == null || typeof raw !== 'string') return null;
-  let key = raw.replace(/^\uFEFF/, '').trim();
-  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
-    key = key.slice(1, -1).trim();
-  }
-  if (!key || key === GEMINI_PLACEHOLDER) return null;
-  return key;
-}
-
-/** Đọc key Gemini: GEMINI_API_KEY, GOOGLE_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, hoặc OPENAI_API_KEY nếu là AIza... */
-export function readGeminiApiKey(): string | null {
-  const a = normalizeKey(process.env.GEMINI_API_KEY);
-  if (a) return a;
-  const b = normalizeKey(process.env.GOOGLE_API_KEY);
-  if (b) return b;
-  const c = normalizeKey(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
-  if (c) return c;
-  const fromOpenAI = normalizeKey(process.env.OPENAI_API_KEY);
-  if (fromOpenAI?.startsWith('AIza')) return fromOpenAI;
-  return null;
-}
-
-/**
- * auto: Gemini nếu có key, không thì OpenAI.
- * gemini: chỉ Gemini (bỏ qua OpenAI).
- * openai: chỉ OpenAI.
- */
-export function resolveLLM(): 'gemini' | 'openai' | null {
-  const mode = (process.env.AI_PROVIDER || 'auto').trim().toLowerCase();
-  if (mode === 'gemini') {
-    return readGeminiApiKey() ? 'gemini' : null;
-  }
-  if (mode === 'openai') {
-    return readOpenAIApiKey() ? 'openai' : null;
-  }
-  if (readGeminiApiKey()) return 'gemini';
-  if (readOpenAIApiKey()) return 'openai';
-  return null;
-}
+export type LlmProvider = SummarizeProvider;
 
 const geminiModelId = () =>
   (process.env.GEMINI_MODEL || 'gemini-2.0-flash').replace(/^\uFEFF/, '').trim() || 'gemini-2.0-flash';
+
+/** @deprecated Dùng isAiConfigured() hoặc resolveSummarizeProvider() */
+export function resolveLLM(): LlmProvider | null {
+  return resolveSummarizeProvider();
+}
+
+export { readGeminiApiKey };
 
 let geminiSdk: GoogleGenerativeAI | null = null;
 function getGeminiSdk(): GoogleGenerativeAI | null {
@@ -89,6 +64,8 @@ export type LlmGenerateOpts = {
   label: string;
   temperature?: number;
   maxTokens?: number;
+  /** Chọn model Ollama riêng cho tóm tắt / dịch */
+  purpose?: 'summarize' | 'translate' | 'general';
 };
 
 async function geminiGenerateText(opts: LlmGenerateOpts): Promise<string> {
@@ -125,7 +102,7 @@ async function openaiGenerateText(opts: LlmGenerateOpts): Promise<string> {
   if (!openai) throw new Error('OPENAI_NO_CLIENT');
   const completion = await withOpenAIRetries(opts.label, () =>
     openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: process.env.OPENAI_MODEL?.trim() || 'gpt-4o-mini',
       messages: [
         { role: 'system', content: opts.system },
         { role: 'user', content: opts.user },
@@ -139,9 +116,57 @@ async function openaiGenerateText(opts: LlmGenerateOpts): Promise<string> {
   return t;
 }
 
-export async function llmGenerateText(opts: LlmGenerateOpts): Promise<string> {
-  const p = resolveLLM();
-  if (p === 'gemini') return geminiGenerateText(opts);
-  if (p === 'openai') return openaiGenerateText(opts);
+async function ollamaGenerateText(opts: LlmGenerateOpts): Promise<string> {
+  const base = ollamaBaseUrl();
+  if (!base) throw new Error('OLLAMA_NO_URL');
+  const purpose = opts.purpose ?? 'general';
+  const model = ollamaModel(purpose);
+  const url = `${base.replace(/\/$/, '')}/api/chat`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      stream: false,
+      messages: [
+        { role: 'system', content: opts.system },
+        { role: 'user', content: opts.user },
+      ],
+      options: {
+        temperature: opts.temperature ?? 0.3,
+        num_predict: opts.maxTokens ?? 2048,
+      },
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`OLLAMA_HTTP_${res.status}${body ? `: ${body.slice(0, 200)}` : ''}`);
+  }
+  const data = (await res.json()) as { message?: { content?: string } };
+  const text = data.message?.content?.trim();
+  if (!text) throw new Error('OLLAMA_EMPTY_RESPONSE');
+  return text;
+}
+
+async function llmGenerateTextInner(opts: LlmGenerateOpts): Promise<string> {
+  if (opts.purpose === 'translate') {
+    const tp = resolveTranslateProvider();
+    if (tp === 'ollama') return ollamaGenerateText(opts);
+    if (tp === 'gemini') return geminiGenerateText(opts);
+    if (tp === 'openai') return openaiGenerateText(opts);
+    if (ollamaBaseUrl()) return ollamaGenerateText(opts);
+    throw new Error('LLM_NO_PROVIDER');
+  }
+
+  const sp = resolveSummarizeProvider();
+  if (sp === 'ollama') return ollamaGenerateText(opts);
+  if (sp === 'gemini') return geminiGenerateText(opts);
+  if (sp === 'openai') return openaiGenerateText(opts);
+  if (ollamaBaseUrl()) return ollamaGenerateText(opts);
   throw new Error('LLM_NO_PROVIDER');
+}
+
+/** Xếp hàng tuần tự để tránh burst (đặc biệt khi dùng cloud free tier). */
+export async function llmGenerateText(opts: LlmGenerateOpts): Promise<string> {
+  return withLlmQueue(() => llmGenerateTextInner(opts));
 }

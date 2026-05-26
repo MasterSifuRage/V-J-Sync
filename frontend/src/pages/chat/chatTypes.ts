@@ -8,6 +8,10 @@ export type DisplayMessage = {
   createdAt: string;
   senderId: string;
   sender: User;
+  isPinned: boolean;
+  pinnedByUserId: string | null;
+  isHidden: boolean;
+  hiddenByUserId: string | null;
 };
 
 export function messageToDisplay(m: Message): DisplayMessage {
@@ -17,16 +21,24 @@ export function messageToDisplay(m: Message): DisplayMessage {
     createdAt: m.createdAt,
     senderId: m.senderId,
     sender: m.sender,
+    isPinned: m.isPinned ?? false,
+    pinnedByUserId: m.pinnedByUserId ?? null,
+    isHidden: m.isHidden ?? false,
+    hiddenByUserId: m.hiddenByUserId ?? null,
   };
 }
 
-export function dmToDisplay(m: DirectMsg, currentUserId: string): DisplayMessage {
+export function dmToDisplay(m: DirectMsg, _currentUserId: string): DisplayMessage {
   return {
     id: m.id,
     content: m.content,
     createdAt: m.createdAt,
     senderId: m.senderId,
     sender: m.sender,
+    isPinned: m.isPinned ?? false,
+    pinnedByUserId: m.pinnedByUserId ?? null,
+    isHidden: m.isHidden ?? false,
+    hiddenByUserId: m.hiddenByUserId ?? null,
   };
 }
 

@@ -18,6 +18,11 @@ export function canManageWorkspace(roleId: number): boolean {
   return roleId === ROLE.ADMIN;
 }
 
+/** Giám đốc / quản lý: ghim/bỏ ghim, ẩn/bỏ ẩn mọi tin nhắn trong chat */
+export function canModerateAllChatMessages(roleId: number): boolean {
+  return roleId === ROLE.ADMIN || roleId === ROLE.MANAGER;
+}
+
 export async function getWorkspaceMember(userId: string, workspaceId: string) {
   return prisma.workspaceMember.findUnique({
     where: { workspaceId_userId: { workspaceId, userId } },
@@ -34,7 +39,7 @@ export async function userIsAdminSomewhere(userId: string): Promise<boolean> {
 export async function getTaskMemberForUser(userId: string, taskId: string) {
   const task = await prisma.task.findUnique({
     where: { id: taskId },
-    select: { id: true, workspaceId: true, assigneeId: true, creatorId: true },
+    select: { id: true, workspaceId: true, assigneeId: true, creatorId: true, status: true, autoTranslateJa: true },
   });
   if (!task) return { task: null, member: null };
   const member = await getWorkspaceMember(userId, task.workspaceId);

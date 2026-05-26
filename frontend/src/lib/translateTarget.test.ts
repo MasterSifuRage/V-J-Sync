@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { getTranslateTarget, setTranslateTarget } from './translateTarget';
+import {
+  applyTranslateTarget,
+  getTranslateTarget,
+  setTranslateTarget,
+} from './translateTarget';
 
 describe('translateTarget', () => {
   beforeEach(() => {
@@ -7,16 +11,23 @@ describe('translateTarget', () => {
   });
 
   it('defaults to ja when storage empty', () => {
-    expect(getTranslateTarget()).toBe('ja');
+    expect(getTranslateTarget('user-a')).toBe('ja');
   });
 
-  it('persists vi', () => {
-    setTranslateTarget('vi');
-    expect(getTranslateTarget()).toBe('vi');
+  it('persists per user', () => {
+    setTranslateTarget('user-a', 'vi');
+    setTranslateTarget('user-b', 'ja');
+    expect(getTranslateTarget('user-a')).toBe('vi');
+    expect(getTranslateTarget('user-b')).toBe('ja');
+  });
+
+  it('applyTranslateTarget syncs from server value', () => {
+    expect(applyTranslateTarget('user-a', 'vi')).toBe('vi');
+    expect(getTranslateTarget('user-a')).toBe('vi');
   });
 
   it('ignores invalid stored value', () => {
-    localStorage.setItem('vjsync_translateTo', 'xx');
-    expect(getTranslateTarget()).toBe('ja');
+    localStorage.setItem('vjsync_translateTo_user-a', 'xx');
+    expect(getTranslateTarget('user-a')).toBe('ja');
   });
 });

@@ -1,15 +1,17 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { userAPI } from '../../services/api';
-import { ROLE_NAMES } from '../../types';
+import { ROLE_I18N_KEYS } from '../../lib/dateLocale';
 import UserAvatar from '../../components/common/UserAvatar';
 import './ProfilePage.css';
 
 type ModalState = null | { type: 'success' | 'error'; title: string; message: string };
 
 export default function ProfilePage() {
+  const { t } = useTranslation();
   const { user, setUser } = useAuthStore();
   const { currentWorkspace } = useWorkspaceStore();
 
@@ -38,16 +40,17 @@ export default function ProfilePage() {
     [user, name, phone, department, preferredLanguage],
   );
 
-  const roleLabel = currentWorkspace?.roleId
-    ? ROLE_NAMES[currentWorkspace.roleId]
-    : null;
+  const roleLabel =
+    currentWorkspace?.roleId && ROLE_I18N_KEYS[currentWorkspace.roleId]
+      ? t(`roles.${ROLE_I18N_KEYS[currentWorkspace.roleId]}`)
+      : null;
 
   const handleSave = async () => {
     if (!name.trim()) {
       setModal({
         type: 'error',
-        title: 'Thiếu thông tin',
-        message: 'Họ và tên không được để trống.',
+        title: t('profile.missingNameTitle'),
+        message: t('profile.missingNameMessage'),
       });
       return;
     }
@@ -62,14 +65,14 @@ export default function ProfilePage() {
       setUser(res.data.user ?? res.data);
       setModal({
         type: 'success',
-        title: 'Đã lưu',
-        message: 'Thông tin tài khoản cá nhân đã được cập nhật.',
+        title: t('profile.savedTitle'),
+        message: t('profile.savedMessage'),
       });
     } catch {
       setModal({
         type: 'error',
-        title: 'Lưu thất bại',
-        message: 'Không thể lưu thay đổi. Vui lòng thử lại.',
+        title: t('profile.saveErrorTitle'),
+        message: t('profile.saveErrorMessage'),
       });
     } finally {
       setSaving(false);
@@ -87,8 +90,8 @@ export default function ProfilePage() {
   return (
     <div className="profile-page">
         <header className="profile-header">
-          <h1>Tài khoản cá nhân</h1>
-          <p className="profile-subtitle">Xem và chỉnh sửa thông tin hồ sơ của bạn</p>
+          <h1>{t('profile.title')}</h1>
+          <p className="profile-subtitle">{t('profile.subtitle')}</p>
         </header>
 
         <section className="profile-card profile-card-hero">
@@ -111,53 +114,52 @@ export default function ProfilePage() {
 
         <section className="profile-card">
           <h3 className="profile-card-title">
-            <i className="fas fa-id-card" /> Thông tin cơ bản
+            <i className="fas fa-id-card" /> {t('profile.basicInfo')}
           </h3>
           <div className="profile-form-grid">
             <div className="form-group">
-              <label htmlFor="p-name">Họ và tên</label>
+              <label htmlFor="p-name">{t('settings.fullName')}</label>
               <input
                 id="p-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Họ và tên"
+                placeholder={t('settings.fullName')}
               />
             </div>
             <div className="form-group">
-              <label htmlFor="p-email">Email</label>
+              <label htmlFor="p-email">{t('common.email')}</label>
               <input id="p-email" type="email" value={user?.email || ''} disabled className="input-disabled" />
             </div>
             <div className="form-group">
-              <label htmlFor="p-phone">Số điện thoại</label>
+              <label htmlFor="p-phone">{t('settings.phone')}</label>
               <input
                 id="p-phone"
                 type="text"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="Số điện thoại"
+                placeholder={t('settings.phone')}
               />
             </div>
             <div className="form-group">
-              <label htmlFor="p-dept">Phòng ban</label>
+              <label htmlFor="p-dept">{t('settings.department')}</label>
               <input
                 id="p-dept"
                 type="text"
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
-                placeholder="Phòng ban"
+                placeholder={t('settings.department')}
               />
             </div>
             <div className="form-group form-group-full">
-              <label htmlFor="p-lang">Ngôn ngữ ưu tiên</label>
+              <label htmlFor="p-lang">{t('profile.preferredLanguage')}</label>
               <select
                 id="p-lang"
                 value={preferredLanguage}
                 onChange={(e) => setPreferredLanguage(e.target.value)}
               >
-                <option value="vi">Tiếng Việt</option>
-                <option value="ja">日本語</option>
-                <option value="en">English</option>
+                <option value="vi">{t('settings.langVi')}</option>
+                <option value="ja">{t('settings.langJa')}</option>
               </select>
             </div>
           </div>
@@ -165,16 +167,16 @@ export default function ProfilePage() {
 
         <div className="profile-actions">
           <button type="button" className="btn-secondary" onClick={handleReset} disabled={!dirty || saving}>
-            Hoàn tác
+            {t('common.reset')}
           </button>
           <button type="button" className="btn-primary" onClick={handleSave} disabled={saving || !dirty}>
-            {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+            {saving ? t('common.saving') : t('profile.saveChanges')}
           </button>
         </div>
 
         <p className="profile-more">
           <Link to="/settings">
-            <i className="fas fa-cog" /> Cài đặt ứng dụng (ngôn ngữ dịch, thông báo…)
+            <i className="fas fa-cog" /> {t('profile.settingsLink')}
           </Link>
         </p>
 
@@ -193,7 +195,7 @@ export default function ProfilePage() {
               <h4 id="profile-modal-title">{modal.title}</h4>
               <p>{modal.message}</p>
               <button type="button" className="btn-primary" onClick={() => setModal(null)}>
-                Đóng
+                {t('common.close')}
               </button>
             </div>
           </div>

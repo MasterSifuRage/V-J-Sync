@@ -377,6 +377,43 @@
   color: #475569;
 }
 
+.activity-type--discussion {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.home-scope-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.home-activity-hint {
+  margin: -4px 0 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.activity-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.activity-kind {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
 .activity-content {
   flex: 1;
   min-width: 0;

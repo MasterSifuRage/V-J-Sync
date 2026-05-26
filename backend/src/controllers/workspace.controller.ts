@@ -120,7 +120,15 @@ export const addWorkspaceMember = async (req: AuthRequest, res: Response) => {
 export const updateWorkspaceMember = async (req: AuthRequest, res: Response) => {
   const workspaceId = routeParam(req.params.workspaceId);
   const userId = routeParam(req.params.userId);
-  const { roleId, permission } = req.body;
+  const { roleId, permission, preferredLanguage } = req.body;
+
+  if (preferredLanguage === 'vi' || preferredLanguage === 'ja') {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { preferredLanguage },
+    });
+  }
+
   const member = await prisma.workspaceMember.update({
     where: { workspaceId_userId: { workspaceId, userId } },
     data: { ...(roleId && { roleId }), ...(permission && { permission }) },
