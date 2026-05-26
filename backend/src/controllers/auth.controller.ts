@@ -47,7 +47,7 @@ export const register = async (req: Request, res: Response) => {
         department: data.department,
         preferredLanguage: data.preferredLanguage || 'vi',
       },
-      select: { id: true, name: true, email: true, preferredLanguage: true, department: true },
+      select: { id: true, name: true, email: true, preferredLanguage: true, translateToLanguage: true, department: true },
     });
 
     const token = generateToken(user.id);
@@ -64,7 +64,11 @@ export const register = async (req: Request, res: Response) => {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: err.errors[0].message });
     }
-    throw err;
+    console.error('[auth/register]', err);
+    return res.status(503).json({
+      error:
+        'Không thể ghi cơ sở dữ liệu. Kiểm tra PostgreSQL đang chạy, DATABASE_URL trong backend/.env, và đã chạy migration/seed.',
+    });
   }
 };
 
@@ -97,6 +101,7 @@ export const login = async (req: Request, res: Response) => {
         name: user.name,
         email: user.email,
         preferredLanguage: user.preferredLanguage,
+        translateToLanguage: user.translateToLanguage,
         avatarUrl: user.avatarUrl,
         department: user.department,
       },
@@ -106,7 +111,11 @@ export const login = async (req: Request, res: Response) => {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: err.errors[0].message });
     }
-    throw err;
+    console.error('[auth/login]', err);
+    return res.status(503).json({
+      error:
+        'Không kết nối được cơ sở dữ liệu hoặc lỗi máy chủ. Kiểm tra PostgreSQL, DATABASE_URL, và chạy npm run db:seed trong thư mục backend.',
+    });
   }
 };
 
@@ -115,7 +124,7 @@ export const getMe = async (req: AuthRequest, res: Response) => {
     where: { id: req.user!.id },
     select: {
       id: true, name: true, email: true, avatarUrl: true,
-      preferredLanguage: true, department: true, phone: true, createdAt: true,
+      preferredLanguage: true, translateToLanguage: true, department: true, phone: true, createdAt: true,
     },
   });
   return res.json({ user });

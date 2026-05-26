@@ -5,7 +5,7 @@ import { AuthRequest } from '../middlewares/auth.middleware';
 const prisma = new PrismaClient();
 
 export const updateProfile = async (req: AuthRequest, res: Response) => {
-  const { name, phone, department, preferredLanguage } = req.body;
+  const { name, phone, department, preferredLanguage, translateToLanguage } = req.body;
 
   const user = await prisma.user.update({
     where: { id: req.user!.id },
@@ -14,8 +14,20 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
       ...(phone !== undefined && { phone }),
       ...(department !== undefined && { department }),
       ...(preferredLanguage && { preferredLanguage }),
+      ...(translateToLanguage === 'vi' || translateToLanguage === 'ja'
+        ? { translateToLanguage }
+        : {}),
     },
-    select: { id: true, name: true, email: true, avatarUrl: true, preferredLanguage: true, department: true, phone: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      avatarUrl: true,
+      preferredLanguage: true,
+      translateToLanguage: true,
+      department: true,
+      phone: true,
+    },
   });
 
   return res.json({ user });

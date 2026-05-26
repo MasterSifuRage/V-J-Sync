@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { routeParam } from '../utils/routeParam';
+import { syncChannelMembersFromHistory } from '../utils/channelMembers';
 
 const prisma = new PrismaClient();
 
@@ -37,9 +38,20 @@ export const getChannelDetail = async (req: AuthRequest, res: Response) => {
     where: { id: channelId },
     include: {
       members: { include: { user: { select: { id: true, name: true, avatarUrl: true, preferredLanguage: true } } } },
-      _count: { select: { messages: true } },
+      _count: { select: { messages: true, members: true } },
     },
   });
   if (!channel) return res.status(404).json({ error: 'Kênh không tồn tại.' });
-  return res.json({ channel });
+
+  await syncChannelMembersFromHistory(prisma, channel.id, channel.name, channel.createdById);
+
+  const refreshed = await prisma.channel.findUnique({
+    where: { id: channelId },
+    include: {
+      members: { include: { user: { select: { id: true, name: true, avatarUrl: true, preferredLanguage: true } } } },
+      _count: { select: { messages: true, members: true } },
+    },
+  });
+
+  return res.json({ channel: refreshed ?? channel });
 };

@@ -1,6 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
+import { ensureChannelMemberOnChat } from '../utils/channelMembers';
 
 const prisma = new PrismaClient();
 
@@ -68,7 +69,11 @@ export function setupSocket(io: Server) {
           },
         });
 
+        await ensureChannelMemberOnChat(prisma, data.channelId, socket.userId!);
+
         io.to(`channel:${data.channelId}`).emit('new_message', message);
+        // Luôn trả tin cho người gửi (kể cả chưa join room kịp)
+        socket.emit('new_message', message);
       } catch (err) {
         socket.emit('error', { message: 'Không thể gửi tin nhắn.' });
       }
@@ -90,6 +95,7 @@ export function setupSocket(io: Server) {
 
         const roomId = [socket.userId, data.receiverId].sort().join(':');
         io.to(`dm:${roomId}`).emit('new_dm', dm);
+        socket.emit('new_dm', dm);
       } catch {
         socket.emit('error', { message: 'Không thể gửi tin nhắn.' });
       }

@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { User } from '../types';
 import { authAPI } from '../services/api';
 import { clearStoredToken, setStoredToken } from '../lib/authToken';
+import { applyUILanguage } from '../i18n';
+import { normalizeUILanguage } from '../lib/uiLanguage';
+import { applyTranslateTarget } from '../lib/translateTarget';
 
 interface AuthState {
   user: User | null;
@@ -22,13 +25,19 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (email, password) => {
     const res = await authAPI.login({ email, password });
     if (res.data.token) setStoredToken(res.data.token);
-    set({ user: res.data.user, isAuthenticated: true });
+    const user = res.data.user;
+    void applyUILanguage(normalizeUILanguage(user.preferredLanguage));
+    applyTranslateTarget(user.id, user.translateToLanguage);
+    set({ user, isAuthenticated: true });
   },
 
   register: async (data) => {
     const res = await authAPI.register(data);
     if (res.data.token) setStoredToken(res.data.token);
-    set({ user: res.data.user, isAuthenticated: true });
+    const user = res.data.user;
+    void applyUILanguage(normalizeUILanguage(user.preferredLanguage));
+    applyTranslateTarget(user.id, user.translateToLanguage);
+    set({ user, isAuthenticated: true });
   },
 
   logout: async () => {
@@ -40,12 +49,19 @@ export const useAuthStore = create<AuthState>((set) => ({
   fetchMe: async () => {
     try {
       const res = await authAPI.getMe();
-      set({ user: res.data.user, isAuthenticated: true, isLoading: false });
+      const user = res.data.user;
+      void applyUILanguage(normalizeUILanguage(user.preferredLanguage));
+      applyTranslateTarget(user.id, user.translateToLanguage);
+      set({ user, isAuthenticated: true, isLoading: false });
     } catch {
       clearStoredToken();
       set({ user: null, isAuthenticated: false, isLoading: false });
     }
   },
 
-  setUser: (user) => set({ user }),
+  setUser: (user) => {
+    void applyUILanguage(normalizeUILanguage(user.preferredLanguage));
+    applyTranslateTarget(user.id, user.translateToLanguage);
+    set({ user });
+  },
 }));

@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { routeParam } from '../utils/routeParam';
+import { userIsAdminSomewhere } from '../utils/workspaceRoles';
 
 const prisma = new PrismaClient();
 
@@ -28,6 +29,13 @@ export const getMyWorkspaces = async (req: AuthRequest, res: Response) => {
 export const createWorkspace = async (req: AuthRequest, res: Response) => {
   const { name, description, department } = req.body;
   if (!name) return res.status(400).json({ error: 'Vui lòng nhập tên Workspace.' });
+
+  const canCreate = await userIsAdminSomewhere(req.user!.id);
+  if (!canCreate) {
+    return res.status(403).json({
+      error: 'Chỉ Giám đốc (Admin) mới có thể tạo workspace mới. Vui lòng liên hệ quản trị viên.',
+    });
+  }
 
   const workspace = await prisma.workspace.create({
     data: {
@@ -69,6 +77,24 @@ export const getWorkspaceMembers = async (req: AuthRequest, res: Response) => {
   return res.json({ members });
 };
 
+/** Người dùng trong DB chưa thuộc workspace — dùng chọn nhanh khi thêm thành viên */
+export const getAvailableUsers = async (req: AuthRequest, res: Response) => {
+  const workspaceId = routeParam(req.params.workspaceId);
+  const members = await prisma.workspaceMember.findMany({
+    where: { workspaceId },
+    select: { userId: true },
+  });
+  const memberIds = members.map((m) => m.userId);
+
+  const users = await prisma.user.findMany({
+    where: memberIds.length > 0 ? { id: { notIn: memberIds } } : undefined,
+    select: { id: true, name: true, email: true, preferredLanguage: true },
+    orderBy: { name: 'asc' },
+  });
+
+  return res.json({ users });
+};
+
 export const addWorkspaceMember = async (req: AuthRequest, res: Response) => {
   const workspaceId = routeParam(req.params.workspaceId);
   const { email, name, roleId, permission, preferredLanguage } = req.body;
@@ -77,7 +103,7 @@ export const addWorkspaceMember = async (req: AuthRequest, res: Response) => {
   let user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
     const bcrypt = await import('bcrypt');
-    const pw = await bcrypt.hash('vjsync123', 12);
+    const pw = await bcrypt.hash('vj123456', 12);
     user = await prisma.user.create({ data: { email, name, password: pw, preferredLanguage: preferredLanguage || 'vi' } });
   }
 
@@ -94,7 +120,15 @@ export const addWorkspaceMember = async (req: AuthRequest, res: Response) => {
 export const updateWorkspaceMember = async (req: AuthRequest, res: Response) => {
   const workspaceId = routeParam(req.params.workspaceId);
   const userId = routeParam(req.params.userId);
-  const { roleId, permission } = req.body;
+  const { roleId, permission, preferredLanguage } = req.body;
+
+  if (preferredLanguage === 'vi' || preferredLanguage === 'ja') {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { preferredLanguage },
+    });
+  }
+
   const member = await prisma.workspaceMember.update({
     where: { workspaceId_userId: { workspaceId, userId } },
     data: { ...(roleId && { roleId }), ...(permission && { permission }) },

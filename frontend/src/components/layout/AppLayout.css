@@ -1,19 +1,48 @@
 .app-layout {
   display: flex;
   min-height: 100vh;
-  background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 100%);
+  background: var(--bg-gray);
+}
+
+.app-shell {
+  margin-left: var(--sidebar-width);
+  flex: 1;
+  min-width: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .main-content {
-  margin-left: 280px;
   flex: 1;
-  padding: 32px 40px;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px clamp(12px, 2.5vw, 24px) 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
+/* 1280×720 — tối đa diện tích nội dung */
+@media (min-width: 1280px) and (max-height: 800px) {
+  .main-content {
+    padding: 12px 14px 14px;
+  }
+}
+
+/* Sidebar thu nhỏ icon */
 @media (max-width: 1024px) {
-  .main-content { margin-left: 80px; }
+  .app-shell {
+    margin-left: var(--sidebar-collapsed);
+  }
 }
 
 @media (max-width: 768px) {
-  .main-content { margin-left: 0; padding: 20px; }
+  .app-shell {
+    margin-left: 0;
+  }
+
+  .main-content {
+    padding: 12px;
+  }
 }

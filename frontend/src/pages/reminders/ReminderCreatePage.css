@@ -34,6 +34,17 @@
   color: var(--text-main);
 }
 
+.reminder-form-loading {
+  text-align: center;
+  padding: 48px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.reminder-form-loading i {
+  margin-right: 8px;
+}
+
 /* Form */
 .reminder-form {
   background: #fff;
