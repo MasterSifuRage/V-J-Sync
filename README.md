@@ -12,7 +12,6 @@ Repo này là **monorepo**: **`backend/`** (API + WebSocket + PostgreSQL) và **
 |----------|-----------------|--------|
 | [Node.js](https://nodejs.org/) | **20.x LTS** (tối thiểu 18.x) | Kèm `npm` |
 | [PostgreSQL](https://www.postgresql.org/download/) | **14+** | Tạo database tên `vjsync` (hoặc đổi trong `DATABASE_URL`) |
-| Tài khoản [OpenAI](https://platform.openai.com/) | — | Cần **API key** nếu dùng dịch / phân tích / tóm tắt |
 
 ---
 
@@ -59,8 +58,8 @@ Hoặc CLI:
 createdb vjsync
 ```
 Chạy trong cd backend 
-npx prisma db push
-npx prisma generate
+```npx prisma db push
+```npx prisma generate
 
 ### 1b. Tạo bảng bằng `psql` (tùy chọn)
 
