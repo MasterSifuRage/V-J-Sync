@@ -58,8 +58,10 @@ Hoặc CLI:
 createdb vjsync
 ```
 Chạy trong cd backend 
-```npx prisma db push
-```npx prisma generate
+```bash
+npx prisma db push
+npx prisma generate
+```
 
 ### 1b. Tạo bảng bằng `psql` (tùy chọn)
 
