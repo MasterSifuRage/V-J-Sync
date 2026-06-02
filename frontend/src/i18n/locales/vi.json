@@ -152,7 +152,9 @@
     "you": "(bạn)",
     "backToList": "Quay lại danh sách",
     "edit": "Chỉnh sửa",
-    "assignedBy": "Giao bởi {{name}}"
+    "assignedBy": "Giao bởi {{name}}",
+    "aiDisclaimerTranslation": "Bản dịch này do AI sinh ra và có thể không chính xác.",
+    "aiDisclaimerSummary": "Tóm tắt này do AI sinh ra và có thể không chính xác."
   },
   "profile": {
     "title": "Tài khoản cá nhân",
@@ -384,6 +386,8 @@
     "colLanguage": "Ngôn ngữ giao diện",
     "colRole": "Vai trò",
     "colPermission": "Quyền hạn",
+    "colActions": "Thao tác",
+    "ownerLabel": "Chủ sở hữu",
     "removeMemberTitle": "Xóa thành viên",
     "emptyMembers": "Chưa có thành viên nào.",
     "securityTitle": "Bảo mật dữ liệu",
@@ -402,9 +406,9 @@
     "memberName": "Tên",
     "memberNamePlaceholder": "Tên thành viên",
     "adding": "Đang thêm...",
-    "permissionAdmin": "Admin",
-    "permissionWrite": "Ghi",
-    "permissionRead": "Đọc",
+    "permissionAdmin": "Toàn quyền",
+    "permissionWrite": "Quản lý Task",
+    "permissionRead": "Chỉ xem",
     "langFromAccount": "Theo cài đặt tài khoản cá nhân",
     "langGlobalHint": "Ngôn ngữ giao diện của tài khoản — áp dụng chung mọi workspace",
     "langNewUserOnly": "Chỉ áp dụng khi tạo tài khoản mới (email chưa có trong hệ thống)"

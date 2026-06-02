@@ -20,6 +20,26 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
 });
 
+const forgotEmailSchema = z.object({
+  email: z.string().email('Email không hợp lệ'),
+});
+
+const resetPasswordSchema = z.object({
+  email: z.string().email('Email không hợp lệ'),
+  password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự'),
+});
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+async function findUserByEmail(email: string) {
+  const normalized = normalizeEmail(email);
+  return prisma.user.findFirst({
+    where: { email: { equals: normalized, mode: 'insensitive' } },
+  });
+}
+
 function generateToken(userId: string): string {
   const secret = process.env.JWT_SECRET || 'secret';
   const options = {
@@ -133,4 +153,47 @@ export const getMe = async (req: AuthRequest, res: Response) => {
 export const logout = (_req: Request, res: Response) => {
   res.clearCookie('token');
   return res.json({ message: 'Đăng xuất thành công.' });
+};
+
+/** Kiểm tra email đăng ký trong hệ thống (bước 1 quên mật khẩu) */
+export const verifyForgotPasswordEmail = async (req: Request, res: Response) => {
+  try {
+    const { email } = forgotEmailSchema.parse(req.body);
+    const user = await findUserByEmail(email);
+    if (!user) {
+      return res.status(404).json({ error: 'Email không tồn tại trong hệ thống.' });
+    }
+    return res.json({ ok: true, email: user.email });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: err.errors[0].message });
+    }
+    console.error('[auth/forgot-password/verify]', err);
+    return res.status(503).json({ error: 'Không thể kiểm tra email. Vui lòng thử lại.' });
+  }
+};
+
+/** Đặt lại mật khẩu sau khi xác nhận email (bước 2) */
+export const resetForgotPassword = async (req: Request, res: Response) => {
+  try {
+    const data = resetPasswordSchema.parse(req.body);
+    const user = await findUserByEmail(data.email);
+    if (!user) {
+      return res.status(404).json({ error: 'Email không tồn tại trong hệ thống.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(data.password, 12);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword },
+    });
+
+    return res.json({ message: 'Đã đổi mật khẩu thành công. Bạn có thể đăng nhập.' });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: err.errors[0].message });
+    }
+    console.error('[auth/forgot-password/reset]', err);
+    return res.status(503).json({ error: 'Không thể đổi mật khẩu. Vui lòng thử lại.' });
+  }
 };
