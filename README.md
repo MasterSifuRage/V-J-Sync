@@ -1,207 +1,238 @@
 # V/J Sync
 
-Nền tảng giao tiếp công sở (workspace, chat theo kênh, task, nhắc nhở) cho môi trường Việt–Nhật, có tích hợp AI qua OpenAI API.
+Nền tảng giao tiếp công sở Việt–Nhật: workspace, chat, task, nhắc nhở, AI dịch/tóm tắt.
 
-Repo này là **monorepo**: **`backend/`** (API + WebSocket + PostgreSQL) và **`frontend/`** (React + Vite).
+Monorepo: **`backend/`** (Express + Prisma + PostgreSQL) · **`frontend/`** (React + Vite)
 
----
+## Yêu cầu
 
-## Yêu cầu môi trường
+| Công cụ | Ghi chú |
+|---------|---------|
+| [Node.js](https://nodejs.org/) 20 LTS (≥18) | Kèm `npm` |
+| [PostgreSQL](https://www.postgresql.org/download/) 14+ | Service phải đang chạy |
+| [Ollama](https://ollama.com/download) | **Khuyến nghị** — dịch/tóm tắt AI mặc định chạy local; có thể thay bằng Gemini/DeepL |
+| [Git](https://git-scm.com/) | Clone repo |
 
-| Phần mềm | Phiên bản gợi ý | Ghi chú |
-|----------|-----------------|--------|
-| [Node.js](https://nodejs.org/) | **20.x LTS** (tối thiểu 18.x) | Kèm `npm` |
-| [PostgreSQL](https://www.postgresql.org/download/) | **14+** | Tạo database tên `vjsync` (hoặc đổi trong `DATABASE_URL`) |
-| Tài khoản [OpenAI](https://platform.openai.com/) | — | Cần **API key** nếu dùng dịch / phân tích / tóm tắt |
-
----
-
-## Clone repository
+## Cài đặt nhanh
 
 ```bash
-git clone <URL-repo-của-bạn>.git
-cd VJ-Sync   # hoặc tên thư mục sau khi clone
+git clone <URL-repo>.git
+cd V-J-Sync
 ```
 
----
+### 1. PostgreSQL — tạo database rỗng
 
-## Cấu trúc thư mục (tóm tắt)
+Prisma **không** tự tạo database, chỉ tạo bảng bên trong DB đã có.
 
-```
-.
-├── backend/                 # API Node.js (Express + TypeScript + Prisma)
-│   ├── prisma/            # schema.prisma, init_schema.sql (tạo bảng thủ công)
-│   ├── src/                 # mã nguồn server
-│   └── .env.example         # mẫu biến môi trường → copy thành .env
-├── frontend/                # SPA React (Vite + TypeScript)
-│   ├── public/              # static (ví dụ: vj-logo.png)
-│   └── src/
-├── old/                     # **Archive**: mockup HTML + đặc tả cũ (không dùng khi chạy app)
-│   └── README.md
-└── README.md
-```
-
----
-
-## Backend — cài đặt và chạy
-
-### 1. Tạo database PostgreSQL
-
-Ví dụ (Windows có thể dùng `psql` hoặc pgAdmin):
+**SQL (pgAdmin):**
 
 ```sql
 CREATE DATABASE vjsync;
 ```
 
-Hoặc CLI:
+**Hoặc CLI:**
 
 ```bash
-createdb vjsync
+createdb -U postgres vjsync
+# psql -U postgres -c "CREATE DATABASE vjsync;"
 ```
-Chạy trong cd backend 
+
+### 2. Backend
+
+```bash
+cd backend
+cp .env.example .env          # Windows CMD: copy .env.example .env
+```
+
+Sửa `DATABASE_URL` trong `.env` cho đúng user/password PostgreSQL:
+
+```env
+DATABASE_URL="postgresql://postgres:MẬT_KHẨU@localhost:5432/vjsync?schema=public"
+```
+
+Cài package, đồng bộ schema (Prisma), seed dữ liệu demo:
+
+```bash
+npm install
 npx prisma db push
 npx prisma generate
-
-### 1b. Tạo bảng bằng `psql` (tùy chọn)
-
-Nếu bạn muốn chạy script SQL thủ công thay vì `prisma migrate dev`, dùng file:
-
-**[`backend/prisma/init_schema.sql`](backend/prisma/init_schema.sql)**
-
-```bash
-psql -U postgres -d vjsync -f backend/prisma/init_schema.sql
+npm run db:seed
 ```
 
-Sau đó vẫn chạy `npx prisma generate`. **Không** cần `prisma migrate dev` nếu DB đã có đủ bảng — có thể bỏ qua bước migration lần đầu, hoặc sau này dùng `prisma migrate diff` để đồng bộ lịch sử migration nếu nhóm dùng Prisma migrate nghiêm ngặt.
+> Bảng/cột: `prisma db push` đọc `prisma/schema.prisma` — **không cần** SQL tạo bảng hay `init_schema.sql`.  
+> Nhóm dùng migration: thay `db push` bằng `npx prisma migrate dev`.
 
-### 2. Cấu hình biến môi trường
+File `backend/.env` (copy từ `.env.example`) mặc định đã bật Ollama:
 
-Trong thư mục `backend/`:
-
-```bash
-cd backend
-copy .env.example .env    # Windows CMD
-# hoặc: cp .env.example .env   # macOS / Linux / Git Bash
+```env
+AI_PROVIDER=ollama
+SUMMARIZE_PROVIDER=ollama
+TRANSLATE_PROVIDER=ollama
+OLLAMA_BASE_URL="http://127.0.0.1:11434"
+OLLAMA_MODEL="llama3.1:latest"
 ```
 
-Mở **`backend/.env`** và chỉnh tối thiểu các dòng sau:
+### 2b. Ollama — AI dịch & tóm tắt (khuyến nghị)
 
-| Biến | Ý nghĩa | Ví dụ |
+Project dùng Ollama **chạy trên máy bạn** (không phải cloud). Backend gọi `http://127.0.0.1:11434` khi dịch chat, mô tả task, nhắc nhở, v.v.
+
+#### Cài Ollama
+
+| Hệ điều hành | Cách cài |
+|--------------|----------|
+| **macOS** | Tải [ollama.com/download](https://ollama.com/download) hoặc `brew install ollama` |
+| **Windows** | Tải installer từ [ollama.com/download](https://ollama.com/download), cài và mở app Ollama |
+| **Linux** | `curl -fsSL https://ollama.com/install.sh \| sh` |
+
+Sau khi cài, mở app **Ollama** (hoặc chạy service) để server lắng nghe port **11434**.
+
+#### Tải model (bắt buộc lần đầu)
+
+Model mặc định trong `.env` là `llama3.1:latest` (~5 GB):
+
+```bash
+ollama pull llama3.1
+```
+
+#### Kiểm tra Ollama đã sẵn sàng
+
+```bash
+ollama --version
+ollama list                    # phải thấy llama3.1
+curl http://127.0.0.1:11434/api/tags
+```
+
+Nếu lệnh cuối trả JSON có `models` → Ollama OK.
+
+#### Khi chạy backend
+
+Log khởi động nên có dạng:
+
+```text
+[V/J Sync] Ollama http://127.0.0.1:11434 model=llama3.1:latest
+```
+
+Nếu không có dòng trên hoặc dịch/tóm tắt lỗi → xem [Xử lý sự cố](#xử-lý-sự-cố) mục AI.
+
+### 3. Frontend
+
+```bash
+cd ../frontend
+npm install
+```
+
+### 4. Chạy dev
+
+> Trước khi test **Dịch** / **tóm tắt AI**: đảm bảo Ollama đang chạy và đã `ollama pull llama3.1`.
+
+**Hai terminal:**
+
+```bash
+# Terminal 1
+cd backend && npm run dev    # http://localhost:3001
+
+# Terminal 2
+cd frontend && npm run dev   # http://localhost:5173
+```
+
+**Hoặc một lệnh từ thư mục gốc:**
+
+```bash
+npm install && npm run dev   # chạy backend + frontend
+```
+
+Mở **http://localhost:5173** · Health check: `GET /api/health`
+
+## Tài khoản demo
+
+Mật khẩu chung: **`vj123456`**
+
+| Email | Vai trò |
+|-------|---------|
+| `demo@vj.local` | Nhân viên |
+| `manager@vj.local` | Quản lý |
+| `admin@vj.local` | Admin |
+
+## Cấu hình
+
+File mẫu: [`backend/.env.example`](backend/.env.example) — không commit `backend/.env`.
+
+| Biến | Mô tả |
+|------|--------|
+| `DATABASE_URL` | Chuỗi kết nối PostgreSQL |
+| `JWT_SECRET` | Khóa JWT (production: đổi giá trị mạnh) |
+| `CLIENT_URL` | URL frontend, mặc định `http://localhost:5173` |
+| `AI_PROVIDER` / `SUMMARIZE_PROVIDER` / `TRANSLATE_PROVIDER` | AI: mặc định `ollama` |
+| `OLLAMA_BASE_URL` | Mặc định `http://127.0.0.1:11434` |
+
+### AI — Ollama (mặc định)
+
+Chi tiết cài đặt: mục **[2b. Ollama](#2b-ollama--ai-dịch--tóm-tắt-khuyến-nghị)** ở trên.
+
+Tóm tắt:
+
+1. Cài Ollama → mở app / service  
+2. `ollama pull llama3.1`  
+3. Giữ port `11434` chạy khi dev  
+4. `backend/.env` giữ `AI_PROVIDER=ollama` và `OLLAMA_BASE_URL`
+
+### AI — Cloud (không cần Ollama)
+
+Ví dụ Gemini — sửa `backend/.env` rồi restart backend:
+
+```env
+AI_PROVIDER=gemini
+SUMMARIZE_PROVIDER=gemini
+TRANSLATE_PROVIDER=gemini
+GEMINI_API_KEY="your-key"
+GEMINI_MODEL="gemini-2.0-flash"
+```
+
+Dịch qua DeepL: `TRANSLATE_PROVIDER=deepl` + `DEEPL_API_KEY`. Xem thêm comment trong `.env.example`.
+
+## Scripts
+
+| Lệnh | Thư mục | Mô tả |
 |------|---------|--------|
-| `DATABASE_URL` | Chuỗi kết nối PostgreSQL | `postgresql://postgres:MẬT_KHẨU@localhost:5432/vjsync?schema=public` |
-| `JWT_SECRET` | Khóa ký JWT | Chuỗi dài, ngẫu nhiên (production **bắt buộc** đổi) |
-| `OPENAI_API_KEY` | Khóa OpenAI | `sk-...` |
-| `PORT` | Cổng API | `3001` |
-| `CLIENT_URL` | Origin của frontend (CORS) | Development: `http://localhost:5173` |
+| `npm run dev` | `backend` / `frontend` / gốc | Dev server |
+| `npm run build` | `backend` / `frontend` | Build production |
+| `npm run db:seed` | `backend` | Seed/cập nhật data demo |
+| `npx prisma db push` | `backend` | Đồng bộ schema sau pull code |
+| `npx prisma studio` | `backend` | GUI xem DB |
 
-**Lưu ý:** Không commit file `backend/.env` (đã có trong `.gitignore`).
+## Cấu trúc
 
-### 3. Cài package và migration
-
-```bash
-cd backend
-npm install
-npx prisma generate
-npx prisma migrate dev --name init
+```
+backend/     API, prisma/, .env.example
+frontend/    React SPA (Vite proxy /api → :3001)
+old/         Mockup HTML cũ (không dùng khi chạy app)
 ```
 
-- Lần đầu: `migrate dev` tạo bảng theo `prisma/schema.prisma`.
-- Nếu chỉ cần client sau khi pull code: `npx prisma generate`.
+## Xử lý sự cố
 
-### 4. Chạy development
+| Triệu chứng | Cách xử lý |
+|-------------|------------|
+| `npm` lỗi trên PowerShell | Dùng CMD hoặc `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` |
+| `Cannot find module ...` | `npm install` trong `backend/` và `frontend/` |
+| Lỗi DB / đăng nhập 503 | Bật PostgreSQL, kiểm tra `DATABASE_URL`, chạy `npx prisma db push` + `npm run db:seed` |
+| `The column ... does not exist` | `npx prisma db push` |
+| AI không dịch được | Ollama: mở app → `ollama pull llama3.1` → `curl http://127.0.0.1:11434/api/tags`. Hoặc đổi `AI_PROVIDER` / `TRANSLATE_PROVIDER` sang Gemini/DeepL trong `.env` |
+| `OLLAMA_HTTP_...` / connection refused | Ollama chưa chạy — macOS: mở Ollama; Linux: `ollama serve` |
+| Model chưa có | `ollama list` trống → chạy `ollama pull llama3.1` (khớp `OLLAMA_MODEL` trong `.env`) |
+| Cookie/CORS | Dùng nhất quán `localhost` (không trộn `127.0.0.1`) · `CLIENT_URL` khớp URL trình duyệt |
 
-```bash
-npm run dev
-```
-
-- API mặc định: **http://localhost:3001**
-- Kiểm tra nhanh: **GET** `http://localhost:3001/api/health` → JSON `{ "status": "ok", ... }`.
-
-### Lệnh npm hữu ích (backend)
-
-| Lệnh | Mô tả |
-|------|--------|
-| `npm run dev` | Chạy server dev (ts-node-dev) |
-| `npm run build` | Build TypeScript → `dist/` |
-| `npm start` | Chạy bản build (`node dist/index.js`) |
-| `npx prisma studio` | GUI xem/sửa dữ liệu |
-
----
-
-## Frontend — cài đặt và chạy
-
-### 1. Cài package
+Sau `git pull`:
 
 ```bash
-cd frontend
-npm install
+cd backend && npm install && npx prisma db push && npx prisma generate
+cd ../frontend && npm install
 ```
 
-### 2. Chạy development
+## Tech stack
 
-```bash
-npm run dev
-```
+React · Vite · Express · Prisma · PostgreSQL · Socket.IO · Ollama / Gemini / DeepL
 
-- Ứng dụng: **http://localhost:5173**
-- Trong `vite.config.ts` đã cấu hình **proxy** `/api` và `/uploads` sang backend `http://localhost:3001`, nên frontend gọi API đường dẫn tương đối `/api/...` là đủ khi dev.
-
-### Lệnh npm hữu ích (frontend)
-
-| Lệnh | Mô tả |
-|------|--------|
-| `npm run dev` | Dev server Vite |
-| `npm run build` | Build production → `dist/` |
-| `npm run preview` | Xem thử bản build |
-
----
-
-## Chạy full stack (hai terminal)
-
-**Terminal 1 — Backend**
-
-```bash
-cd backend
-npm run dev
-```
-
-**Terminal 2 — Frontend**
-
-```bash
-cd frontend
-npm run dev
-```
-
-Mở trình duyệt: **http://localhost:5173** → đăng ký / đăng nhập → dùng workspace, chat, task, v.v.
-
----
-
-## WebSocket (chat real-time)
-
-Client Socket.IO kết nối qua cùng origin khi dev (proxy). Đảm bảo backend đang chạy và `CLIENT_URL` trong `backend/.env` trùng với URL frontend (mặc định `http://localhost:5173`).
-
----
-
-## Xử lý sự cố thường gặp
-
-- **`npm` không nhận lệnh:** Cài [Node.js LTS](https://nodejs.org/), đóng mở lại terminal / IDE.
-- **Lỗi kết nối database:** Kiểm tra PostgreSQL đã bật, `DATABASE_URL` đúng user/password/port/tên DB.
-- **Migration lỗi:** Xóa DB test và tạo lại, hoặc dùng `npx prisma migrate reset` (⚠️ mất dữ liệu cục bộ).
-- **CORS / cookie:** `CLIENT_URL` phải khớp URL bạn mở frontend; không trộn `127.0.0.1` và `localhost` nếu cookie strict.
-- **AI không hoạt động:** Kiểm tra `OPENAI_API_KEY` hợp lệ và có quota.
-
----
-
-## Công nghệ sử dụng
-
-- **Frontend:** React 18, TypeScript, Vite, React Router, Zustand, Axios, Socket.IO Client  
-- **Backend:** Express, TypeScript, Prisma ORM, PostgreSQL, JWT, Socket.IO, Multer  
-- **AI:** OpenAI API (mô hình cấu hình trong code backend, ví dụ `gpt-4o-mini`)
-
----
-
-## Giấy phép
+## License
 
 LICENSE
-=======
 

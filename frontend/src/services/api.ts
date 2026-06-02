@@ -18,7 +18,10 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      const isAuthPage = window.location.pathname === '/login' || window.location.pathname === '/register';
+      const isAuthPage =
+        window.location.pathname === '/login' ||
+        window.location.pathname === '/register' ||
+        window.location.pathname === '/forgot-password';
       if (!isAuthPage) {
         clearStoredToken();
         window.location.href = '/login';
@@ -38,6 +41,10 @@ export const authAPI = {
     api.post('/auth/login', data),
   getMe: () => api.get('/auth/me'),
   logout: () => api.post('/auth/logout'),
+  verifyForgotPasswordEmail: (email: string) =>
+    api.post('/auth/forgot-password/verify-email', { email }),
+  resetForgotPassword: (data: { email: string; password: string }) =>
+    api.post('/auth/forgot-password/reset', data),
 };
 
 // Workspace

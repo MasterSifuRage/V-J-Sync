@@ -229,6 +229,10 @@
   margin-top: 14px;
 }
 
+.detail-section .ai-disclaimer-block {
+  margin-top: 10px;
+}
+
 /* Info Grid */
 .detail-info-grid {
   display: grid;

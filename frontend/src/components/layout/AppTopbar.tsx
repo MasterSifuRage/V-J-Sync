@@ -65,7 +65,7 @@ export default function AppTopbar() {
     try {
       await logout();
     } finally {
-      navigate('/login', { replace: true });
+      navigate('/', { replace: true });
     }
   };
 

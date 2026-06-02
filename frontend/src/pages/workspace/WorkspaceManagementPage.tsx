@@ -28,6 +28,14 @@ const PERMISSION_OPTIONS = [
   { value: 'read', key: 'permissionRead' },
 ] as const;
 
+/** Giá trị permission cũ trong DB → giá trị select UI */
+function permissionSelectValue(permission: string): string {
+  if (permission === 'full') return 'admin';
+  if (permission === 'task_remind') return 'write';
+  if (permission === 'chat_view' || permission === 'view_only') return 'read';
+  return permission;
+}
+
 export default function WorkspaceManagementPage() {
   const { t } = useTranslation();
   const { workspaceId } = useParams<{ workspaceId: string }>();
@@ -37,6 +45,7 @@ export default function WorkspaceManagementPage() {
   const [department, setDepartment] = useState('');
   const [description, setDescription] = useState('');
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [workspaceOwnerId, setWorkspaceOwnerId] = useState<string | null>(null);
   const [security, setSecurity] = useState<SecuritySettings>({
     encryption: true,
     fileSharingLimits: false,
@@ -68,11 +77,12 @@ export default function WorkspaceManagementPage() {
     ])
       .then(([wsRes, memRes]) => {
         const wsList = wsRes.data.workspaces ?? wsRes.data;
-        const ws = wsList.find((w: { id: string; roleId?: number }) => w.id === workspaceId);
+        const ws = wsList.find((w: { id: string; roleId?: number; createdById?: string }) => w.id === workspaceId);
         if (!ws || ws.roleId !== 1) {
           navigate('/workspaces', { replace: true });
           return;
         }
+        setWorkspaceOwnerId(ws.createdById ?? null);
         setName(ws.name || '');
         setDepartment(ws.department || '');
         setDescription(ws.description || '');
@@ -273,7 +283,7 @@ export default function WorkspaceManagementPage() {
                 <th>{t('wsManage.colLanguage')}</th>
                 <th>{t('wsManage.colRole')}</th>
                 <th>{t('wsManage.colPermission')}</th>
-                <th></th>
+                <th>{t('wsManage.colActions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -322,7 +332,7 @@ export default function WorkspaceManagementPage() {
                   </td>
                   <td>
                     <select
-                      value={m.permission}
+                      value={permissionSelectValue(m.permission)}
                       onChange={(e) =>
                         handleUpdateMember(m.userId, 'permission', e.target.value)
                       }
@@ -335,13 +345,18 @@ export default function WorkspaceManagementPage() {
                     </select>
                   </td>
                   <td>
-                    <button
-                      className="btn-remove-member"
-                      onClick={() => handleRemoveMember(m.userId)}
-                      title={t('wsManage.removeMemberTitle')}
-                    >
-                      <i className="fas fa-trash" />
-                    </button>
+                    {workspaceOwnerId && m.userId === workspaceOwnerId ? (
+                      <span className="member-owner-label">{t('wsManage.ownerLabel')}</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn-remove-member"
+                        onClick={() => handleRemoveMember(m.userId)}
+                        title={t('wsManage.removeMemberTitle')}
+                      >
+                        {t('common.delete')}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
