@@ -1,0 +1,48 @@
+# Render Blueprint — 1 app (frontend + API) + PostgreSQL lưu trữ online
+# Dashboard → New → Blueprint → repo V-J-Sync
+#
+# Hoặc dùng Neon: xóa khối databases, đặt DATABASE_URL thủ công khi deploy.
+
+databases:
+  - name: vjsync-db
+    databaseName: vjsync
+    user: vjsync
+    plan: free
+
+services:
+  - type: web
+    name: vjsync
+    runtime: node
+    plan: free
+    buildCommand: >-
+      cd frontend && npm ci && npm run build &&
+      cd ../backend && npm ci && npx prisma generate && npm run build
+    startCommand: >-
+      cd backend && npx prisma db push &&
+      SERVE_FRONTEND=1 NODE_ENV=production node dist/index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: TRUST_PROXY
+        value: '1'
+      - key: SERVE_FRONTEND
+        value: '1'
+      - key: DATABASE_URL
+        fromDatabase:
+          name: vjsync-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: AI_PROVIDER
+        value: gemini
+      - key: SUMMARIZE_PROVIDER
+        value: gemini
+      - key: TRANSLATE_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash

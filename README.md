@@ -16,7 +16,8 @@ docker compose up --build -d
 ```
 
 Mở **http://localhost:3001** · Chi tiết VPS, HTTPS, AI trên server: **[DEPLOY.md](DEPLOY.md)**  
-**Vercel (frontend) + Railway/Neon (API + DB):** **[DEPLOY-VERCEL.md](DEPLOY-VERCEL.md)**
+**Vercel (frontend) + Railway/Neon (API + DB):** **[DEPLOY-VERCEL.md](DEPLOY-VERCEL.md)**  
+**Render (1 URL + PostgreSQL online):** **[DEPLOY-RENDER.md](DEPLOY-RENDER.md)** — file [`render.yaml`](render.yaml)
 
 ## Yêu cầu
 
