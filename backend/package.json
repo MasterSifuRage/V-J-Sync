@@ -11,6 +11,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "db:seed": "prisma db seed",
+    "create-admin": "ts-node --transpile-only scripts/create-admin.ts",
     "test": "vitest run && tsc --noEmit"
   },
   "prisma": {

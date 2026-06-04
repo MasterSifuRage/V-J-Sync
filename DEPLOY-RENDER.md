@@ -106,21 +106,42 @@ DEEPL_API_KEY=your-deepl-key
 2. Kiểm tra API: `https://vjsync.onrender.com/api/health`  
    → `{"status":"ok",...}`
 
-### Tạo tài khoản demo (một lần)
+### Tạo tài khoản admin để test (chọn 1 cách)
 
-1. Render → service **vjsync** → tab **Shell**
-2. Chạy:
+#### Cách 1 — Demo có sẵn (`db:seed`)
+
+Lấy **External Database URL** từ Render → **vjsync-db** → Connect, chạy trên máy:
 
 ```bash
-cd backend && npm run db:seed
+cd backend
+export DATABASE_URL="postgresql://...dán-từ-render..."
+npm run db:seed
 ```
-
-3. Đăng nhập app:
 
 | Email | Mật khẩu |
 |-------|----------|
 | `admin@vj.local` | `vj123456` |
-| `demo@vj.local` | `vj123456` |
+
+Workspace: **V/J Sync Demo**
+
+#### Cách 2 — Email/mật khẩu tự đặt (`create-admin`)
+
+```bash
+cd backend
+export DATABASE_URL="postgresql://...dán-từ-render..."
+export ADMIN_EMAIL="email-cua-ban@gmail.com"
+export ADMIN_PASSWORD="mat-khau-test-123"
+export ADMIN_NAME="Admin"
+npm run create-admin
+```
+
+Đăng nhập link Render bằng email/mật khẩu vừa đặt.
+
+#### Cách 3 — Shell trên Render
+
+```bash
+cd backend && npm run db:seed
+```
 
 Dữ liệu seed và mọi dữ liệu bạn tạo sau đó **nằm trong PostgreSQL Render** — không mất khi redeploy app (chỉ mất nếu xóa database).
 
