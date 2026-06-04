@@ -138,10 +138,35 @@ vercel --prod
 
 ---
 
+## Lỗi 405 khi đăng nhập trên Vercel
+
+**Nguyên nhân:** Frontend gửi `POST /api/auth/login` lên **chính domain Vercel**. Vercel chỉ host file tĩnh → trả **405 Method Not Allowed** (không có API).
+
+**Cách sửa:**
+
+1. Deploy backend (Railway/Render) và có URL public, ví dụ `https://vj-sync-production.up.railway.app`
+2. Vercel → Project → **Settings** → **Environment Variables**
+3. Thêm:
+
+   | Name | Value |
+   |------|--------|
+   | `VITE_API_URL` | `https://vj-sync-production.up.railway.app` |
+
+   ⚠️ **Không** gõ `/api` ở cuối.
+
+4. Chọn **Production** + **Preview** → Save
+5. **Deployments** → ⋮ → **Redeploy** (bắt buộc — Vite nhúng biến lúc **build**)
+6. Railway: `CLIENT_URL` = URL Vercel, ví dụ `https://vj-sync.vercel.app`
+
+Kiểm tra backend: mở `https://<backend>/api/health` → `{"status":"ok",...}`
+
+---
+
 ## Lưu ý
 
 | Vấn đề | Giải thích |
 |--------|------------|
+| **Lỗi 405 đăng nhập** | Thiếu `VITE_API_URL` hoặc chưa Redeploy sau khi thêm biến |
 | Chỉ deploy Vercel, không backend | API 404 / CORS — bắt buộc có backend riêng |
 | Chat không realtime | Sai `VITE_API_URL` hoặc `CLIENT_URL` trên backend |
 | Đăng nhập lỗi CORS | `CLIENT_URL` phải khớp chính xác origin Vercel (https) |

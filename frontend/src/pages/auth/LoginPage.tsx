@@ -43,6 +43,10 @@ export default function LoginPage() {
             setError(
               'Backend chưa chạy hoặc không lắng nghe cổng 3001 (Vite báo ECONNREFUSED khi proxy /api). Mở terminal khác: cd backend && npm run dev. Hoặc từ thư mục gốc repo: npm install && npm run dev để chạy cả hai.',
             );
+          } else if (st === 405) {
+            setError(
+              'Lỗi 405: API chưa trỏ đúng backend. Trên Vercel → Settings → Environment Variables → thêm VITE_API_URL = URL Railway/Render (không có /api ở cuối), sau đó Redeploy. Backend phải chạy và CLIENT_URL trùng URL Vercel.',
+            );
           } else {
             setError(`Lỗi ${st}. Vui lòng thử lại.`);
           }
