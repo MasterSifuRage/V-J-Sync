@@ -6,7 +6,11 @@
     "dev": "concurrently -k -n api,web -c blue,magenta \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
     "dev:backend": "npm run dev --prefix backend",
     "dev:frontend": "npm run dev --prefix frontend",
-    "test": "npm run test --prefix backend && npm run test --prefix frontend"
+    "test": "npm run test --prefix backend && npm run test --prefix frontend",
+    "build": "npm run build --prefix frontend && npm run build --prefix backend",
+    "docker:up": "docker compose --env-file .env.production up --build -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f app"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

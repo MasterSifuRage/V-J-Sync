@@ -9,6 +9,7 @@ import { Channel, Message, User, Workspace, WorkspaceMember } from '../../types'
 import io, { Socket } from 'socket.io-client';
 import Sidebar from '../../components/layout/Sidebar';
 import { getStoredToken } from '../../lib/authToken';
+import { socketServerUrl } from '../../lib/apiBase';
 import { uiDateLocale } from '../../lib/dateLocale';
 import { detectTextLang, isValidTranslation, translationPair } from '../../lib/textLang';
 import { fetchTranslation, TaskTranslationBlock } from '../tasks/taskDetailHelpers';
@@ -293,7 +294,7 @@ export default function ChatPage() {
     const token = getStoredToken();
     if (!token) return;
 
-    const socket = io(window.location.origin, {
+    const socket = io(socketServerUrl(), {
       withCredentials: true,
       auth: { token },
     });

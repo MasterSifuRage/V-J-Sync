@@ -1,5 +1,7 @@
 import express from 'express';
 import http from 'http';
+import path from 'path';
+import fs from 'fs';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
@@ -24,8 +26,18 @@ import {
   resolveSummarizeProvider,
   resolveTranslateProvider,
 } from './services/aiConfig';
+import { getAllowedClientOrigins, isClientOriginAllowed } from './utils/corsOrigins';
 
 dotenv.config();
+
+const allowedOrigins = getAllowedClientOrigins();
+const corsOriginCheck: cors.CorsOptions['origin'] = (origin, callback) => {
+  if (isClientOriginAllowed(origin)) {
+    callback(null, true);
+  } else {
+    callback(new Error(`CORS blocked: ${origin ?? 'unknown'}`));
+  }
+};
 
 if (isAiConfigured()) {
   console.log(
@@ -41,17 +53,20 @@ if (isAiConfigured()) {
 }
 
 const app = express();
+if (process.env.TRUST_PROXY === '1') {
+  app.set('trust proxy', 1);
+}
 const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: allowedOrigins,
     credentials: true,
   },
 });
 
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: corsOriginCheck,
   credentials: true,
 }));
 app.use(express.json());
@@ -74,14 +89,38 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+const frontendDist = path.resolve(__dirname, '../../frontend/dist');
+const serveFrontend =
+  process.env.SERVE_FRONTEND === '1' ||
+  (process.env.NODE_ENV === 'production' && fs.existsSync(frontendDist));
+
+if (serveFrontend) {
+  app.use(express.static(frontendDist, { index: false }));
+  app.get('*', (req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    if (
+      req.path.startsWith('/api') ||
+      req.path.startsWith('/uploads') ||
+      req.path.startsWith('/socket.io')
+    ) {
+      return next();
+    }
+    res.sendFile(path.join(frontendDist, 'index.html'), (err) => {
+      if (err) next(err);
+    });
+  });
+  console.log(`[V/J Sync] Serving frontend from ${frontendDist}`);
+}
+
 app.use(errorHandler);
 
 setupSocket(io);
 setSocketIo(io);
 
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`[V/J Sync] Server running on http://localhost:${PORT}`);
+const PORT = Number(process.env.PORT) || 3001;
+const HOST = process.env.HOST || '0.0.0.0';
+server.listen(PORT, HOST, () => {
+  console.log(`[V/J Sync] Server running on http://${HOST}:${PORT}`);
 });
 
 export { io };

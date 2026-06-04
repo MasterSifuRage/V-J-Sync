@@ -1,0 +1,17 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.env
+.env.*
+!.env.production.example
+backend/.env
+backend/uploads/*
+!backend/uploads/.gitkeep
+*.log
+.DS_Store
+old
+.cursor
+agent-transcripts
+assets

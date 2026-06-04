@@ -4,6 +4,20 @@ Nền tảng giao tiếp công sở Việt–Nhật: workspace, chat, task, nh�
 
 Monorepo: **`backend/`** (Express + Prisma + PostgreSQL) · **`frontend/`** (React + Vite)
 
+## Deploy (production)
+
+Chạy bằng **Docker Compose** (PostgreSQL + app một cổng **3001**):
+
+```bash
+cp .env.production.example .env.production
+# Sửa JWT_SECRET, POSTGRES_PASSWORD, CLIENT_URL, GEMINI_API_KEY (hoặc Ollama)
+docker compose up --build -d
+# hoặc: npm run docker:up
+```
+
+Mở **http://localhost:3001** · Chi tiết VPS, HTTPS, AI trên server: **[DEPLOY.md](DEPLOY.md)**  
+**Vercel (frontend) + Railway/Neon (API + DB):** **[DEPLOY-VERCEL.md](DEPLOY-VERCEL.md)**
+
 ## Yêu cầu
 
 | Công cụ | Ghi chú |

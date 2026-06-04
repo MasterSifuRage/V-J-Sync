@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { clearStoredToken, getStoredToken } from '../lib/authToken';
+import { axiosApiBaseURL } from '../lib/apiBase';
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: axiosApiBaseURL(),
   withCredentials: true,
 });
 

@@ -2,6 +2,7 @@ node_modules/
 dist/
 **/dist/
 .env
+.env.production
 backend/.env
 *.log
 backend/uploads/*
