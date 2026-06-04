@@ -36,13 +36,13 @@ services:
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
-      - key: AI_PROVIDER
-        value: gemini
-      - key: SUMMARIZE_PROVIDER
-        value: gemini
-      - key: TRANSLATE_PROVIDER
-        value: gemini
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: GEMINI_MODEL
-        value: gemini-2.0-flash
+      # AI — tùy chọn. Không điền GEMINI vẫn deploy được (chat/task/DB bình thường, không dịch AI).
+      # Bật Gemini: thêm GEMINI_API_KEY trên Dashboard sau khi deploy.
+      # - key: GEMINI_API_KEY
+      #   sync: false
+      # - key: AI_PROVIDER
+      #   value: gemini
+      # - key: SUMMARIZE_PROVIDER
+      #   value: gemini
+      # - key: TRANSLATE_PROVIDER
+      #   value: gemini

@@ -29,12 +29,15 @@ git push origin Project_Update
 
 (Đổi tên nhánh nếu bạn dùng nhánh khác.)
 
-### 2. Chuẩn bị Gemini API (AI dịch / tóm tắt)
+### 2. AI (tùy chọn — **không bắt buộc Gemini**)
 
-- Vào [Google AI Studio](https://aistudio.google.com/apikey) → tạo **API key**
-- Copy key (dùng ở bước deploy)
+| Bạn muốn | Làm gì |
+|----------|--------|
+| **Không dùng AI** | Bỏ qua bước API key — vẫn deploy được (xem bên dưới) |
+| **Dịch / tóm tắt bằng Gemini** | Tạo key tại [Google AI Studio](https://aistudio.google.com/apikey) |
+| **Chỉ dịch (DeepL)** | Thêm `DEEPL_API_KEY` + `TRANSLATE_PROVIDER=deepl` trên Render sau deploy |
 
-> Render free **không** chạy Ollama — dùng Gemini (hoặc DeepL) trong env.
+> Render **không** chạy Ollama trên server free. Ollama chỉ dùng được nếu bạn có URL Ollama public (ngrok, VPS riêng) — không khuyến nghị lúc đầu.
 
 ---
 
@@ -48,15 +51,52 @@ git push origin Project_Update
    - **Database** `vjsync-db` (PostgreSQL)
    - **Web Service** `vjsync`
 
-### Điền biến bắt buộc khi được hỏi
+### Biến môi trường khi deploy
 
-| Biến | Giá trị |
-|------|---------|
-| `GEMINI_API_KEY` | API key Gemini của bạn |
+| Biến | Bắt buộc? |
+|------|-----------|
+| `DATABASE_URL`, `JWT_SECRET` | Render **tự gán** từ Blueprint |
+| `GEMINI_API_KEY` | **Không** — file `render.yaml` hiện tại không yêu cầu |
 
-Các biến khác (`DATABASE_URL`, `JWT_SECRET`) Render **tự gán** từ Blueprint.
+Nếu màn hình Blueprint vẫn hỏi `GEMINI_API_KEY` (bản cũ): để **trống** hoặc bấm **Skip** nếu có.
 
 6. Bấm **Apply** / **Deploy Blueprint** → đợi **10–15 phút** (build frontend + backend lần đầu).
+
+---
+
+## Không dùng Gemini — app vẫn chạy gì?
+
+| Có | Không (cần AI sau) |
+|----|---------------------|
+| Đăng nhập / đăng ký | Nút **Dịch** tin nhắn |
+| Chat (gửi/nhận tin) | Tóm tắt AI công việc |
+| Task, nhắc nhở, workspace | Dịch tự động mô tả |
+| **Database lưu online** | |
+
+Log backend có thể ghi: *Chưa cấu hình AI* — bình thường.
+
+### Bật Gemini sau (không cần deploy lại Blueprint)
+
+Render → **vjsync** → **Environment** → thêm:
+
+```env
+GEMINI_API_KEY=your-key
+AI_PROVIDER=gemini
+SUMMARIZE_PROVIDER=gemini
+TRANSLATE_PROVIDER=gemini
+GEMINI_MODEL=gemini-2.0-flash
+```
+
+→ **Manual Deploy** → Redeploy.
+
+### Chỉ dịch bằng DeepL (không Gemini)
+
+```env
+TRANSLATE_PROVIDER=deepl
+DEEPL_API_KEY=your-deepl-key
+```
+
+(Tóm tắt task vẫn cần Gemini/OpenAI/Ollama nếu bật auto-translate.)
 
 ---
 
@@ -111,7 +151,7 @@ Neon cũng **lưu online lâu dài**.
 |------|--------|
 | `DATABASE_URL` | Tự từ Postgres (hoặc Neon) |
 | `JWT_SECRET` | Tự sinh — không đổi lung tung sau khi có user |
-| `GEMINI_API_KEY` | Bắt buộc cho AI |
+| `GEMINI_API_KEY` | Tùy chọn — chỉ khi bật AI |
 | `SERVE_FRONTEND` | `1` — phục vụ React build |
 | `RENDER_EXTERNAL_URL` | Render tự set — dùng cho CORS |
 | `CLIENT_URL` | Tùy chọn — nếu trống, backend dùng `RENDER_EXTERNAL_URL` |

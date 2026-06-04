@@ -1,7 +1,11 @@
 /** URL gốc backend (không có /api). Dev để trống → dùng proxy Vite cùng origin. */
 export function apiOrigin(): string {
-  const raw = import.meta.env.VITE_API_URL?.trim() || '';
-  return raw.replace(/\/$/, '');
+  let raw = import.meta.env.VITE_API_URL?.trim() || '';
+  raw = raw.replace(/\/$/, '');
+  if (raw && !/^https?:\/\//i.test(raw)) {
+    raw = `https://${raw}`;
+  }
+  return raw;
 }
 
 /** baseURL cho axios — luôn kết thúc bằng /api */
