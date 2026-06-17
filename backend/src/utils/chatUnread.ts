@@ -57,7 +57,7 @@ export async function countUnreadForWorkspace(userId: string, workspaceId: strin
 
   const channelUnread: Record<string, number> = {};
   await Promise.all(
-    channels.map(async (ch) => {
+    channels.map(async (ch: { id: string }) => {
       const since = await getLastReadAt(userId, workspaceId, 'channel', ch.id, fallback);
       const count = await prisma.message.count({
         where: {
@@ -77,7 +77,7 @@ export async function countUnreadForWorkspace(userId: string, workspaceId: strin
 
   const dmUnread: Record<string, number> = {};
   await Promise.all(
-    members.map(async (m) => {
+    members.map(async (m: { userId: string }) => {
       const since = await getLastReadAt(userId, workspaceId, 'dm', m.userId, fallback);
       const count = await prisma.directMessage.count({
         where: {

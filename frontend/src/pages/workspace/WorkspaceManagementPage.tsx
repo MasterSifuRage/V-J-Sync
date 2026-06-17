@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { workspaceAPI } from '../../services/api';
 import { WorkspaceMember } from '../../types';
 import { ROLE_I18N_KEYS } from '../../lib/dateLocale';
-import { normalizeUILanguage } from '../../lib/uiLanguage';
 import UserAvatar from '../../components/common/UserAvatar';
 import './WorkspaceManagementPage.css';
 
@@ -21,19 +20,16 @@ interface PickableUser {
   preferredLanguage?: string;
 }
 
-const ROLE_OPTIONS = [1, 2, 3, 4] as const;
-const PERMISSION_OPTIONS = [
-  { value: 'admin', key: 'permissionAdmin' },
-  { value: 'write', key: 'permissionWrite' },
-  { value: 'read', key: 'permissionRead' },
-] as const;
+const ROLE = {
+  DIRECTOR: 1,
+  MANAGER: 2,
+  EMPLOYEE: 3,
+} as const;
+const FILTER_ROLE_OPTIONS = [ROLE.DIRECTOR, ROLE.MANAGER, ROLE.EMPLOYEE] as const;
+const EDITABLE_ROLE_OPTIONS = [ROLE.EMPLOYEE, ROLE.MANAGER] as const;
 
-/** Giá trị permission cũ trong DB → giá trị select UI */
-function permissionSelectValue(permission: string): string {
-  if (permission === 'full') return 'admin';
-  if (permission === 'task_remind') return 'write';
-  if (permission === 'chat_view' || permission === 'view_only') return 'read';
-  return permission;
+function defaultPermissionForRole(roleId: number): string {
+  return roleId === ROLE.MANAGER ? 'task_remind' : 'chat_view';
 }
 
 export default function WorkspaceManagementPage() {
@@ -60,8 +56,9 @@ export default function WorkspaceManagementPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
-  const [newRole, setNewRole] = useState(3);
-  const [newPermission, setNewPermission] = useState('read');
+  const [newRole, setNewRole] = useState<number>(ROLE.EMPLOYEE);
+  const [memberSearch, setMemberSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'all' | string>('all');
   const [adding, setAdding] = useState(false);
   const [showUserPicker, setShowUserPicker] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<PickableUser[]>([]);
@@ -105,8 +102,7 @@ export default function WorkspaceManagementPage() {
   const resetAddMemberForm = () => {
     setNewEmail('');
     setNewName('');
-    setNewRole(3);
-    setNewPermission('read');
+    setNewRole(ROLE.EMPLOYEE);
     setShowUserPicker(false);
     setPickedUserId(null);
   };
@@ -142,20 +138,22 @@ export default function WorkspaceManagementPage() {
     }
   };
 
-  const handleUpdateMember = async (
-    userId: string,
-    field: 'roleId' | 'permission' | 'preferredLanguage',
-    value: string | number
-  ) => {
+  const filteredMembers = useMemo(() => {
+    const query = memberSearch.trim().toLowerCase();
+    return members.filter((member) => {
+      const matchesRole = roleFilter === 'all' || member.roleId === Number(roleFilter);
+      const matchesSearch =
+        !query ||
+        member.user.name.toLowerCase().includes(query) ||
+        member.user.email.toLowerCase().includes(query);
+      return matchesRole && matchesSearch;
+    });
+  }, [members, memberSearch, roleFilter]);
+
+  const handleUpdateMemberRole = async (userId: string, roleId: number) => {
     if (!workspaceId) return;
     try {
-      const payload =
-        field === 'preferredLanguage'
-          ? { preferredLanguage: value }
-          : field === 'roleId'
-            ? { roleId: value }
-            : { permission: value };
-      const res = await workspaceAPI.updateMember(workspaceId, userId, payload);
+      const res = await workspaceAPI.updateMember(workspaceId, userId, { roleId });
       const updated: WorkspaceMember = res.data.member ?? res.data;
       setMembers((prev) =>
         prev.map((m) => (m.userId === userId ? updated : m))
@@ -185,7 +183,7 @@ export default function WorkspaceManagementPage() {
         email: newEmail.trim(),
         name: newName.trim() || undefined,
         roleId: newRole,
-        permission: newPermission,
+        permission: defaultPermissionForRole(newRole),
       });
       const res = await workspaceAPI.getMembers(workspaceId);
       setMembers(res.data.members ?? res.data);
@@ -275,19 +273,45 @@ export default function WorkspaceManagementPage() {
           </button>
         </div>
 
+        <div className="member-tools">
+          <div className="member-search">
+            <i className="fas fa-search" aria-hidden="true" />
+            <input
+              type="search"
+              value={memberSearch}
+              onChange={(e) => setMemberSearch(e.target.value)}
+              placeholder={t('wsManage.searchEmployeePlaceholder')}
+              aria-label={t('wsManage.searchEmployeePlaceholder')}
+            />
+          </div>
+          <div className="member-role-filter">
+            <label htmlFor="member-role-filter">{t('wsManage.roleFilterLabel')}</label>
+            <select
+              id="member-role-filter"
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+            >
+              <option value="all">{t('wsManage.roleFilterAll')}</option>
+              {FILTER_ROLE_OPTIONS.map((roleId) => (
+                <option key={roleId} value={roleId}>
+                  {t(`roles.${ROLE_I18N_KEYS[roleId]}`)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         <div className="members-table-wrapper">
           <table className="members-table">
             <thead>
               <tr>
                 <th>{t('wsManage.colMember')}</th>
-                <th>{t('wsManage.colLanguage')}</th>
                 <th>{t('wsManage.colRole')}</th>
-                <th>{t('wsManage.colPermission')}</th>
                 <th>{t('wsManage.colActions')}</th>
               </tr>
             </thead>
             <tbody>
-              {members.map((m) => (
+              {filteredMembers.map((m) => (
                 <tr key={m.id}>
                   <td>
                     <div className="member-cell">
@@ -304,45 +328,22 @@ export default function WorkspaceManagementPage() {
                     </div>
                   </td>
                   <td>
-                    <select
-                      className="member-ui-lang-select"
-                      value={normalizeUILanguage(m.user.preferredLanguage)}
-                      title={t('wsManage.langGlobalHint')}
-                      onChange={(e) =>
-                        handleUpdateMember(m.userId, 'preferredLanguage', e.target.value)
-                      }
-                    >
-                      <option value="vi">{t('settings.langVi')}</option>
-                      <option value="ja">{t('settings.langJa')}</option>
-                    </select>
-                  </td>
-                  <td>
-                    <select
-                      value={m.roleId}
-                      onChange={(e) =>
-                        handleUpdateMember(m.userId, 'roleId', Number(e.target.value))
-                      }
-                    >
-                      {ROLE_OPTIONS.map((roleId) => (
-                        <option key={roleId} value={roleId}>
-                          {t(`roles.${ROLE_I18N_KEYS[roleId]}`)}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <select
-                      value={permissionSelectValue(m.permission)}
-                      onChange={(e) =>
-                        handleUpdateMember(m.userId, 'permission', e.target.value)
-                      }
-                    >
-                      {PERMISSION_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {t(`wsManage.${opt.key}`)}
-                        </option>
-                      ))}
-                    </select>
+                    {m.roleId === ROLE.DIRECTOR ? (
+                      <span className="member-role-label">{t(`roles.${ROLE_I18N_KEYS[m.roleId]}`)}</span>
+                    ) : (
+                      <select
+                        value={m.roleId}
+                        onChange={(e) =>
+                          handleUpdateMemberRole(m.userId, Number(e.target.value))
+                        }
+                      >
+                        {EDITABLE_ROLE_OPTIONS.map((roleId) => (
+                          <option key={roleId} value={roleId}>
+                            {t(`roles.${ROLE_I18N_KEYS[roleId]}`)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </td>
                   <td>
                     {workspaceOwnerId && m.userId === workspaceOwnerId ? (
@@ -360,10 +361,10 @@ export default function WorkspaceManagementPage() {
                   </td>
                 </tr>
               ))}
-              {members.length === 0 && (
+              {filteredMembers.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="empty-row">
-                    {t('wsManage.emptyMembers')}
+                  <td colSpan={3} className="empty-row">
+                    {members.length === 0 ? t('wsManage.emptyMembers') : t('wsManage.emptyFilteredMembers')}
                   </td>
                 </tr>
               )}
@@ -523,23 +524,9 @@ export default function WorkspaceManagementPage() {
                     value={newRole}
                     onChange={(e) => setNewRole(Number(e.target.value))}
                   >
-                    {ROLE_OPTIONS.map((roleId) => (
+                    {EDITABLE_ROLE_OPTIONS.map((roleId) => (
                       <option key={roleId} value={roleId}>
                         {t(`roles.${ROLE_I18N_KEYS[roleId]}`)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="mem-perm">{t('wsManage.colPermission')}</label>
-                  <select
-                    id="mem-perm"
-                    value={newPermission}
-                    onChange={(e) => setNewPermission(e.target.value)}
-                  >
-                    {PERMISSION_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {t(`wsManage.${opt.key}`)}
                       </option>
                     ))}
                   </select>

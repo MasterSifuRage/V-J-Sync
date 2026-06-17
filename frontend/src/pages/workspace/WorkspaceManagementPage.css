@@ -223,6 +223,76 @@
   background: #dbeafe;
 }
 
+.member-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.member-search {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+}
+
+.member-search i {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.member-search input {
+  width: 100%;
+  height: 32px;
+  padding: 6px 10px 6px 28px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-gray);
+  color: #1e293b;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.member-search input:focus {
+  border-color: #94a3b8;
+  background: var(--surface);
+}
+
+.member-role-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.member-role-filter label {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.member-role-filter select {
+  height: 32px;
+  min-width: 132px;
+  padding: 5px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: #1e293b;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+
 /* Members Table */
 .members-table-wrapper {
   overflow-x: auto;
@@ -312,6 +382,20 @@
 
 .members-table select:focus {
   border-color: var(--primary);
+}
+
+.member-role-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  font-size: var(--font-table);
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .btn-remove-member {
@@ -680,6 +764,10 @@
   gap: 16px;
 }
 
+.ws-modal.ws-modal-add-member .form-row {
+  grid-template-columns: 1fr;
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;
@@ -756,6 +844,19 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
+  }
+
+  .member-tools {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .member-search {
+    min-width: 0;
+  }
+
+  .member-role-filter {
+    justify-content: space-between;
   }
 
   .ws-modal .form-row {

@@ -5,6 +5,22 @@ import { routeParam } from '../utils/routeParam';
 import { userIsAdminSomewhere } from '../utils/workspaceRoles';
 
 const prisma = new PrismaClient();
+const ROLE = {
+  DIRECTOR: 1,
+  MANAGER: 2,
+  EMPLOYEE: 3,
+} as const;
+type WorkspaceMembership = {
+  workspace: { _count: { members: number } } & Record<string, unknown>;
+  roleId: number;
+  permission: string;
+};
+
+function normalizeEditableRole(roleId: unknown, useDefault = false): number | null {
+  if (roleId === undefined && useDefault) return ROLE.EMPLOYEE;
+  const roleNumber = Number(roleId);
+  return roleNumber === ROLE.MANAGER || roleNumber === ROLE.EMPLOYEE ? roleNumber : null;
+}
 
 export const getMyWorkspaces = async (req: AuthRequest, res: Response) => {
   const memberships = await prisma.workspaceMember.findMany({
@@ -16,7 +32,7 @@ export const getMyWorkspaces = async (req: AuthRequest, res: Response) => {
     },
   });
 
-  const workspaces = memberships.map((m) => ({
+  const workspaces = memberships.map((m: WorkspaceMembership) => ({
     ...m.workspace,
     roleId: m.roleId,
     permission: m.permission,
@@ -84,7 +100,7 @@ export const getAvailableUsers = async (req: AuthRequest, res: Response) => {
     where: { workspaceId },
     select: { userId: true },
   });
-  const memberIds = members.map((m) => m.userId);
+  const memberIds = members.map((m: { userId: string }) => m.userId);
 
   const users = await prisma.user.findMany({
     where: memberIds.length > 0 ? { id: { notIn: memberIds } } : undefined,
@@ -98,6 +114,9 @@ export const getAvailableUsers = async (req: AuthRequest, res: Response) => {
 export const addWorkspaceMember = async (req: AuthRequest, res: Response) => {
   const workspaceId = routeParam(req.params.workspaceId);
   const { email, name, roleId, permission, preferredLanguage } = req.body;
+  if (roleId !== undefined && !normalizeEditableRole(roleId)) {
+    return res.status(400).json({ error: 'Vai tro thanh vien khong hop le.' });
+  }
   if (!email || !name) return res.status(400).json({ error: 'Vui lòng nhập email và tên.' });
 
   let user = await prisma.user.findUnique({ where: { email } });
@@ -111,7 +130,7 @@ export const addWorkspaceMember = async (req: AuthRequest, res: Response) => {
   if (existing) return res.status(400).json({ error: 'Người dùng đã là thành viên.' });
 
   const member = await prisma.workspaceMember.create({
-    data: { workspaceId, userId: user.id, roleId: roleId || 3, permission: permission || 'chat_view' },
+    data: { workspaceId, userId: user.id, roleId: normalizeEditableRole(roleId, true)!, permission: permission || 'chat_view' },
     include: { user: { select: { id: true, name: true, email: true, avatarUrl: true, preferredLanguage: true } } },
   });
   return res.status(201).json({ member });
@@ -121,6 +140,22 @@ export const updateWorkspaceMember = async (req: AuthRequest, res: Response) => 
   const workspaceId = routeParam(req.params.workspaceId);
   const userId = routeParam(req.params.userId);
   const { roleId, permission, preferredLanguage } = req.body;
+  const existing = await prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId, userId } },
+    select: { roleId: true },
+  });
+  if (!existing) return res.status(404).json({ error: 'Thanh vien khong ton tai.' });
+
+  const updateData: { roleId?: number; permission?: string } = {};
+  if (roleId !== undefined) {
+    if (existing.roleId === ROLE.DIRECTOR) {
+      return res.status(403).json({ error: 'Khong the thay doi vai tro Giam doc.' });
+    }
+    const nextRoleId = normalizeEditableRole(roleId);
+    if (!nextRoleId) return res.status(400).json({ error: 'Vai tro thanh vien khong hop le.' });
+    updateData.roleId = nextRoleId;
+  }
+  if (permission) updateData.permission = permission;
 
   if (preferredLanguage === 'vi' || preferredLanguage === 'ja') {
     await prisma.user.update({
@@ -131,7 +166,7 @@ export const updateWorkspaceMember = async (req: AuthRequest, res: Response) => 
 
   const member = await prisma.workspaceMember.update({
     where: { workspaceId_userId: { workspaceId, userId } },
-    data: { ...(roleId && { roleId }), ...(permission && { permission }) },
+    data: updateData,
     include: { user: { select: { id: true, name: true, email: true, avatarUrl: true, preferredLanguage: true } } },
   });
   return res.json({ member });

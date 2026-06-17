@@ -93,7 +93,7 @@ async function fetchUnreadChatForWorkspace(
   });
 
   await Promise.all(
-    otherMembers.map(async (m) => {
+    otherMembers.map(async (m: { userId: string; user: { name: string } }) => {
       const since = await getLastReadAt(userId, workspaceId, 'dm', m.userId, readFallback);
       const where = {
         workspaceId,
@@ -162,7 +162,7 @@ async function buildDashboardForMember(
     where: { workspaceId },
     select: { id: true },
   });
-  const channelIdList = channelIds.map((c) => c.id);
+  const channelIdList = channelIds.map((c: { id: string }) => c.id);
 
   const unreadChatPromise = fetchUnreadChatForWorkspace(
     userId,
@@ -377,7 +377,7 @@ export const getAllWorkspacesDashboard = async (req: AuthRequest, res: Response)
   }
 
   const parts = await Promise.all(
-    memberships.map((m) =>
+    memberships.map((m: { workspaceId: string; roleId: number; workspace: { name: string } }) =>
       buildDashboardForMember(userId, m.workspaceId, m.workspace.name, m.roleId),
     ),
   );

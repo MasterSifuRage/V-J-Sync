@@ -38,7 +38,7 @@ export async function syncChannelMembersFromHistory(
     distinct: ['senderId'],
   });
 
-  const userIds = new Set<string>([createdById, ...senders.map((s) => s.senderId)]);
+  const userIds = new Set<string>([createdById, ...senders.map((s: { senderId: string }) => s.senderId)]);
 
   await Promise.all(
     Array.from(userIds).map((uid) =>
