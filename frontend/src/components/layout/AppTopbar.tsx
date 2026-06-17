@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
+import UserAvatar from '../common/UserAvatar';
 import './AppTopbar.css';
 
 export default function AppTopbar() {
@@ -22,15 +23,6 @@ export default function AppTopbar() {
   const [wsOpen, setWsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<HTMLDivElement>(null);
-
-  const initials = user?.name
-    ? user.name
-        .split(' ')
-        .map((w) => w[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase()
-    : '?';
 
   useEffect(() => {
     void fetchWorkspaces();
@@ -166,14 +158,24 @@ export default function AppTopbar() {
               <span className="app-topbar-user-name">{user?.name ?? '—'}</span>
               <span className="app-topbar-user-email">{user?.email ?? ''}</span>
             </div>
-            <span className="app-topbar-avatar">{initials}</span>
+            <UserAvatar
+              name={user?.name}
+              avatarUrl={user?.avatarUrl}
+              size="sm"
+              className="app-topbar-avatar"
+            />
             <i className="fas fa-chevron-down app-topbar-chevron" aria-hidden />
           </button>
 
           {menuOpen && (
             <div className="app-topbar-dropdown" role="menu">
               <div className="app-topbar-dropdown-header">
-                <span className="app-topbar-dropdown-avatar">{initials}</span>
+                <UserAvatar
+                  name={user?.name}
+                  avatarUrl={user?.avatarUrl}
+                  size="md"
+                  className="app-topbar-dropdown-avatar"
+                />
                 <div>
                   <strong>{user?.name}</strong>
                   <span>{user?.email}</span>
