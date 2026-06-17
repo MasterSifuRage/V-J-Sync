@@ -260,9 +260,9 @@ export default function SettingsPage() {
               />
             </div>
             <div className="form-group">
-              <label htmlFor="s-role">{t('settings.role')}</label>
+              <label htmlFor="s-email">{t('common.email')}</label>
               <input
-                id="s-role"
+                id="s-email"
                 type="text"
                 value={user?.email || ''}
                 disabled
