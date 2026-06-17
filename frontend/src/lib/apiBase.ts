@@ -19,3 +19,13 @@ export function socketServerUrl(): string {
   const origin = apiOrigin();
   return origin || window.location.origin;
 }
+
+/** URL hiển thị cho file tĩnh backend (ví dụ /uploads/avatar.png). */
+export function resolveMediaUrl(path?: string | null): string | undefined {
+  if (!path?.trim()) return undefined;
+  const normalized = path.trim();
+  if (/^https?:\/\//i.test(normalized)) return normalized;
+  const relative = normalized.startsWith('/') ? normalized : `/${normalized}`;
+  const origin = apiOrigin();
+  return origin ? `${origin}${relative}` : relative;
+}

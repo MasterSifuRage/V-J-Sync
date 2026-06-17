@@ -31,8 +31,10 @@ export default function SettingsPage() {
   const [notifyReminders, setNotifyReminders] = useState(true);
   const [notifySound, setNotifySound] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [modal, setModal] = useState<ModalState>(null);
 
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const translateBaseline = useRef<TranslateTargetLang>('ja');
   const togglesBaseline = useRef({
     autoTranslate: true,
@@ -156,6 +158,55 @@ export default function SettingsPage() {
     }
   };
 
+  const handleAvatarPick = () => {
+    if (!uploadingAvatar) avatarInputRef.current?.click();
+  };
+
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !user) return;
+
+    if (!file.type.startsWith('image/')) {
+      setModal({
+        type: 'error',
+        title: t('settings.error'),
+        message: t('settings.avatarInvalidType'),
+      });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setModal({
+        type: 'error',
+        title: t('settings.error'),
+        message: t('settings.avatarTooLarge'),
+      });
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      const res = await userAPI.updateAvatar(formData);
+      const updated = res.data.user ?? res.data;
+      setUser({ ...user, ...updated });
+      setModal({
+        type: 'success',
+        title: t('settings.avatarUpdatedTitle'),
+        message: t('settings.avatarUpdatedMessage'),
+      });
+    } catch {
+      setModal({
+        type: 'error',
+        title: t('settings.saveErrorTitle'),
+        message: t('settings.avatarErrorMessage'),
+      });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const handleCancelClick = () => {
     if (hasUnsavedChanges) {
       setModal({
@@ -228,14 +279,27 @@ export default function SettingsPage() {
         </h2>
         <div className="profile-section">
           <div className="avatar-wrapper">
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={handleAvatarFileChange}
+            />
             <UserAvatar
               name={name || user?.name}
               avatarUrl={user?.avatarUrl}
               size="lg"
               className="avatar-circle"
             />
-            <button type="button" className="avatar-edit" title={t('settings.changeAvatar')}>
-              <i className="fas fa-camera" />
+            <button
+              type="button"
+              className="avatar-edit"
+              title={t('settings.changeAvatar')}
+              onClick={handleAvatarPick}
+              disabled={uploadingAvatar}
+            >
+              <i className={uploadingAvatar ? 'fas fa-spinner fa-spin' : 'fas fa-camera'} />
             </button>
           </div>
           <div className="profile-grid">

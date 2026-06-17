@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { resolveMediaUrl } from '../../lib/apiBase';
 import { getAvatarColor, getUserInitials } from '../../lib/userInitials';
 import './UserAvatar.css';
 
@@ -23,7 +24,8 @@ export default function UserAvatar({
   const displayName = name?.trim() || 'User';
   const initials = getUserInitials(displayName);
   const bg = getAvatarColor(displayName);
-  const showImage = Boolean(avatarUrl) && !imgFailed;
+  const imageSrc = resolveMediaUrl(avatarUrl);
+  const showImage = Boolean(imageSrc) && !imgFailed;
 
   useEffect(() => {
     setImgFailed(false);
@@ -36,7 +38,7 @@ export default function UserAvatar({
       aria-hidden={title ? undefined : true}
     >
       {showImage ? (
-        <img src={avatarUrl!} alt="" onError={() => setImgFailed(true)} />
+        <img src={imageSrc!} alt="" onError={() => setImgFailed(true)} />
       ) : (
         <span className="user-avatar__initials" style={{ backgroundColor: bg }}>
           {initials}
