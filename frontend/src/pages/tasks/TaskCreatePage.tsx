@@ -7,7 +7,6 @@ import { WorkspaceMember } from '../../types';
 import { ROLE } from '../../lib/workspaceRole';
 import './TaskCreatePage.css';
 
-const STATUS_OPTIONS = ['todo', 'in_progress', 'review', 'done'] as const;
 const PRIORITY_OPTIONS = ['normal', 'high', 'urgent'] as const;
 
 export default function TaskCreatePage() {
@@ -17,7 +16,6 @@ export default function TaskCreatePage() {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [status, setStatus] = useState<string>('todo');
   const [assigneeId, setAssigneeId] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [priority, setPriority] = useState<string>('normal');
@@ -68,7 +66,6 @@ export default function TaskCreatePage() {
       await taskAPI.create(currentWorkspace.id, {
         title: title.trim(),
         description: description.trim() || undefined,
-        status,
         priority,
         tags,
         dueDate: dueDate || undefined,
@@ -178,17 +175,6 @@ export default function TaskCreatePage() {
 
         <div className="task-create-right">
           <h2 className="section-title">{t('tasks.settingsSection')}</h2>
-
-          <div className="form-group">
-            <label>{t('tasks.statusLabel')}</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value)}>
-              {STATUS_OPTIONS.map((key) => (
-                <option key={key} value={key}>
-                  {t(`taskStatus.${key}`)}
-                </option>
-              ))}
-            </select>
-          </div>
 
           <div className="form-group">
             <label>{t('tasks.assigneeLabel')}</label>
