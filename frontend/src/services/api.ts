@@ -155,6 +155,8 @@ export const searchAPI = {
 // User
 export const userAPI = {
   updateProfile: (data: any) => api.put('/users/me', data),
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    api.put('/users/me/password', data),
   updateAvatar: (formData: FormData) =>
     api.put('/users/me/avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
 };

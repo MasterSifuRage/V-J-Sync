@@ -5,6 +5,7 @@ import { useWorkspaceStore } from '../../store/workspaceStore';
 import { reminderAPI } from '../../services/api';
 import { Reminder } from '../../types';
 import { uiDateLocale } from '../../lib/dateLocale';
+import { isEmployee } from '../../lib/workspaceRole';
 import UserAvatar from '../../components/common/UserAvatar';
 import {
   formatReminderClock,
@@ -25,6 +26,7 @@ export default function ReminderListPage() {
   const [, tick] = useState(0);
 
   const dateLocale = uiDateLocale(i18n.language);
+  const employeeView = isEmployee(currentWorkspace?.roleId);
 
   useEffect(() => {
     if (!currentWorkspace) return;
@@ -62,9 +64,11 @@ export default function ReminderListPage() {
           <h1>{t('reminders.title')}</h1>
           <p className="reminder-subtitle">{t('reminders.subtitle')}</p>
         </div>
-        <button type="button" className="btn-create" onClick={() => navigate('/reminders/create')}>
-          <i className="fas fa-plus" /> {t('reminders.create')}
-        </button>
+        {!employeeView && (
+          <button type="button" className="btn-create" onClick={() => navigate('/reminders/create')}>
+            <i className="fas fa-plus" /> {t('reminders.create')}
+          </button>
+        )}
       </div>
 
       {error && <div className="reminder-error">{error}</div>}
@@ -78,9 +82,11 @@ export default function ReminderListPage() {
         <div className="reminder-empty">
           <i className="fas fa-bell-slash" />
           <p>{t('reminders.empty')}</p>
-          <button type="button" className="btn-create-alt" onClick={() => navigate('/reminders/create')}>
-            {t('reminders.createFirst')}
-          </button>
+          {!employeeView && (
+            <button type="button" className="btn-create-alt" onClick={() => navigate('/reminders/create')}>
+              {t('reminders.createFirst')}
+            </button>
+          )}
         </div>
       ) : (
         <div className="reminder-list">

@@ -137,6 +137,12 @@
   margin-bottom: 12px;
 }
 
+.profile-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
 .btn-primary,
 .btn-secondary {
   padding: 6px 14px;

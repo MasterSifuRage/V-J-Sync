@@ -301,6 +301,23 @@
 .members-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.members-table th:nth-child(1),
+.members-table td:nth-child(1) {
+  width: 56%;
+}
+
+.members-table th:nth-child(2),
+.members-table td:nth-child(2) {
+  width: 24%;
+}
+
+.members-table th:nth-child(3),
+.members-table td:nth-child(3) {
+  width: 20%;
+  text-align: right;
 }
 
 .members-table thead th {
@@ -316,7 +333,8 @@
 }
 
 .members-table tbody td {
-  padding: 5px 8px;
+  height: 42px;
+  padding: 6px 8px;
   border-bottom: 1px solid #f1f5f9;
   vertical-align: middle;
   font-size: var(--font-table);
@@ -335,6 +353,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .member-cell .member-avatar.user-avatar {
@@ -345,11 +364,17 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .member-email {
   font-size: 10px;
   color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .member-lang-display {
@@ -369,6 +394,8 @@
 
 /* Table selects */
 .members-table select {
+  width: 150px;
+  max-width: 100%;
   padding: 3px 6px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
@@ -387,6 +414,9 @@
 .member-role-label {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  width: 150px;
+  max-width: 100%;
   min-height: 26px;
   padding: 3px 8px;
   border-radius: var(--radius-sm);
@@ -416,12 +446,15 @@
 }
 
 .member-owner-label {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
   font-size: 12px;
   font-style: italic;
   color: #94a3b8;
   user-select: none;
   cursor: default;
+  min-height: 28px;
 }
 
 .empty-row {
@@ -857,6 +890,10 @@
 
   .member-role-filter {
     justify-content: space-between;
+  }
+
+  .members-table {
+    min-width: 560px;
   }
 
   .ws-modal .form-row {

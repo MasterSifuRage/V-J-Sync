@@ -173,7 +173,19 @@
     "savedTitle": "Đã lưu",
     "savedMessage": "Thông tin tài khoản cá nhân đã được cập nhật.",
     "saveErrorTitle": "Lưu thất bại",
-    "saveErrorMessage": "Không thể lưu thay đổi. Vui lòng thử lại."
+    "saveErrorMessage": "Không thể lưu thay đổi. Vui lòng thử lại.",
+    "changePasswordTitle": "Đổi mật khẩu",
+    "currentPassword": "Mật khẩu hiện tại",
+    "newPassword": "Mật khẩu mới",
+    "confirmPassword": "Xác nhận mật khẩu mới",
+    "changePasswordBtn": "Đổi mật khẩu",
+    "passwordSavedTitle": "Đã đổi mật khẩu",
+    "passwordSavedMessage": "Mật khẩu của bạn đã được cập nhật.",
+    "passwordErrorTitle": "Không thể đổi mật khẩu",
+    "passwordRequiredMessage": "Vui lòng nhập đầy đủ mật khẩu.",
+    "passwordMinMessage": "Mật khẩu mới phải có ít nhất 6 ký tự.",
+    "passwordMismatchMessage": "Mật khẩu xác nhận không khớp.",
+    "passwordSaveErrorMessage": "Không thể đổi mật khẩu. Vui lòng thử lại."
   },
   "workspace": {
     "title": "Workspace của bạn",

@@ -20,6 +20,10 @@ export default function ProfilePage() {
   const [department, setDepartment] = useState('');
   const [preferredLanguage, setPreferredLanguage] = useState('vi');
   const [saving, setSaving] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [modal, setModal] = useState<ModalState>(null);
 
   useEffect(() => {
@@ -85,6 +89,54 @@ export default function ProfilePage() {
     setPhone(user.phone || '');
     setDepartment(user.department || '');
     setPreferredLanguage(user.preferredLanguage || 'vi');
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setModal({
+        type: 'error',
+        title: t('profile.passwordErrorTitle'),
+        message: t('profile.passwordRequiredMessage'),
+      });
+      return;
+    }
+    if (newPassword.length < 6) {
+      setModal({
+        type: 'error',
+        title: t('profile.passwordErrorTitle'),
+        message: t('profile.passwordMinMessage'),
+      });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setModal({
+        type: 'error',
+        title: t('profile.passwordErrorTitle'),
+        message: t('profile.passwordMismatchMessage'),
+      });
+      return;
+    }
+
+    setSavingPassword(true);
+    try {
+      await userAPI.changePassword({ currentPassword, newPassword });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setModal({
+        type: 'success',
+        title: t('profile.passwordSavedTitle'),
+        message: t('profile.passwordSavedMessage'),
+      });
+    } catch (err: any) {
+      setModal({
+        type: 'error',
+        title: t('profile.passwordErrorTitle'),
+        message: err.response?.data?.error || t('profile.passwordSaveErrorMessage'),
+      });
+    } finally {
+      setSavingPassword(false);
+    }
   };
 
   return (
@@ -162,6 +214,54 @@ export default function ProfilePage() {
                 <option value="ja">{t('settings.langJa')}</option>
               </select>
             </div>
+          </div>
+        </section>
+
+        <section className="profile-card">
+          <h3 className="profile-card-title">
+            <i className="fas fa-key" /> {t('profile.changePasswordTitle')}
+          </h3>
+          <div className="profile-form-grid">
+            <div className="form-group form-group-full">
+              <label htmlFor="p-current-password">{t('profile.currentPassword')}</label>
+              <input
+                id="p-current-password"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="p-new-password">{t('profile.newPassword')}</label>
+              <input
+                id="p-new-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="p-confirm-password">{t('profile.confirmPassword')}</label>
+              <input
+                id="p-confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+          </div>
+          <div className="profile-card-actions">
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={handleChangePassword}
+              disabled={savingPassword}
+            >
+              {savingPassword ? t('common.saving') : t('profile.changePasswordBtn')}
+            </button>
           </div>
         </section>
 

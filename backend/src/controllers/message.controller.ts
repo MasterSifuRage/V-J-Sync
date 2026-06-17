@@ -85,6 +85,15 @@ const fileSelect = {
   sender: { select: { id: true, name: true } },
 } as const;
 
+type MessageFileRow = {
+  id: string;
+  fileName: string | null;
+  fileUrl: string | null;
+  fileType?: string | null;
+  createdAt: Date;
+  sender: { id: string; name: string };
+};
+
 export const getChannelFiles = async (req: AuthRequest, res: Response) => {
   const channelId = routeParam(req.params.channelId);
   const files = await prisma.message.findMany({
@@ -93,7 +102,7 @@ export const getChannelFiles = async (req: AuthRequest, res: Response) => {
     orderBy: { createdAt: 'desc' },
   });
   return res.json({
-    files: files.map((f) => ({
+    files: files.map((f: MessageFileRow) => ({
       id: f.id,
       fileName: f.fileName,
       fileUrl: f.fileUrl,
@@ -130,7 +139,7 @@ export const getDmFiles = async (req: AuthRequest, res: Response) => {
   });
 
   return res.json({
-    files: files.map((f) => ({
+    files: files.map((f: MessageFileRow) => ({
       id: f.id,
       fileName: f.fileName,
       fileUrl: f.fileUrl,

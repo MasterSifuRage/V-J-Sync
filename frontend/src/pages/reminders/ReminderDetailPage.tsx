@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { reminderAPI } from '../../services/api';
 import { Reminder } from '../../types';
 import { uiDateLocale } from '../../lib/dateLocale';
+import { useWorkspaceStore } from '../../store/workspaceStore';
+import { isEmployee } from '../../lib/workspaceRole';
 import { getCountdown } from '../../lib/reminderTime';
 import { useDescriptionTranslation } from '../../hooks/useDescriptionTranslation';
 import { TaskTranslationBlock } from '../tasks/taskDetailHelpers';
@@ -14,6 +16,7 @@ export default function ReminderDetailPage() {
   const { t, i18n } = useTranslation();
   const { reminderId } = useParams<{ reminderId: string }>();
   const navigate = useNavigate();
+  const { currentWorkspace } = useWorkspaceStore();
   const [reminder, setReminder] = useState<Reminder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -97,6 +100,7 @@ export default function ReminderDetailPage() {
   if (!reminder) return null;
 
   const countdown = getCountdown(reminder.remindAt, reminder.isCompleted, t);
+  const employeeView = isEmployee(currentWorkspace?.roleId);
 
   return (
     <div className="reminder-detail-page">
@@ -124,9 +128,11 @@ export default function ReminderDetailPage() {
               <i className={`fas ${reminder.isCompleted ? 'fa-undo' : 'fa-check'}`} />
               {reminder.isCompleted ? t('reminders.markIncomplete') : t('reminders.markComplete')}
             </button>
-            <button className="btn-edit" onClick={() => navigate(`/reminders/${reminderId}/edit`)}>
-              <i className="fas fa-edit" /> {t('common.edit')}
-            </button>
+            {!employeeView && (
+              <button className="btn-edit" onClick={() => navigate(`/reminders/${reminderId}/edit`)}>
+                <i className="fas fa-edit" /> {t('common.edit')}
+              </button>
+            )}
             <button className="btn-delete" onClick={handleDelete} disabled={deleting}>
               <i className="fas fa-trash" /> {deleting ? t('common.deleting') : t('common.delete')}
             </button>
