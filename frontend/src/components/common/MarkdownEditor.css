@@ -56,7 +56,8 @@
   margin: 0 4px;
 }
 
-.markdown-editor-textarea {
+.markdown-editor-textarea,
+.markdown-editor-body {
   width: 100%;
   min-height: 160px;
   padding: 14px 16px;
@@ -64,11 +65,30 @@
   font-size: 14px;
   color: #1e293b;
   line-height: 1.6;
-  resize: vertical;
   outline: none;
   background: #fff;
   box-sizing: border-box;
   font-family: 'Inter', sans-serif;
+}
+
+.markdown-editor-body {
+  resize: vertical;
+  overflow: auto;
+  cursor: text;
+}
+
+.markdown-editor-body:empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.markdown-editor-body:focus {
+  outline: none;
+}
+
+.markdown-editor-textarea {
+  resize: vertical;
 }
 
 .markdown-editor-textarea::placeholder {
@@ -129,11 +149,4 @@
   padding: 0 16px 8px;
   font-size: 12px;
   color: #dc2626;
-}
-
-.markdown-editor-hint {
-  margin: 0;
-  padding: 8px 16px 12px;
-  font-size: 12px;
-  color: #94a3b8;
 }

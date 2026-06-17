@@ -1,14 +1,8 @@
-import { useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { TaskAttachment } from '../../types';
 import { taskAPI } from '../../services/api';
-import {
-  applyAlignBlock,
-  applyBulletList,
-  applyTextEdit,
-  getTextSelection,
-  wrapSelection,
-} from '../../lib/markdownToolbar';
+import { editorHtmlToMarkdown, markdownToEditorHtml } from '../../lib/richTextMarkdown';
 import './MarkdownEditor.css';
 
 type MarkdownEditorProps = {
@@ -38,16 +32,40 @@ export default function MarkdownEditor({
   disabled = false,
 }: MarkdownEditorProps) {
   const { t } = useTranslation();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const lastEmitted = useRef(value);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
 
-  const runEdit = (edit: (selection: ReturnType<typeof getTextSelection>) => { value: string; cursor: number }) => {
-    const textarea = textareaRef.current;
-    if (!textarea || disabled) return;
-    const result = edit(getTextSelection(value, textarea));
-    applyTextEdit(textarea, result.value, result.cursor, onChange);
+  useEffect(() => {
+    const el = editorRef.current;
+    if (!el) return;
+    if (value !== lastEmitted.current) {
+      lastEmitted.current = value;
+      if (document.activeElement !== el) {
+        el.innerHTML = markdownToEditorHtml(value);
+      }
+      return;
+    }
+    if (!el.innerHTML && value) {
+      el.innerHTML = markdownToEditorHtml(value);
+    }
+  }, [value]);
+
+  const emitChange = () => {
+    const el = editorRef.current;
+    if (!el) return;
+    const markdown = editorHtmlToMarkdown(el.innerHTML);
+    lastEmitted.current = markdown;
+    onChange(markdown);
+  };
+
+  const applyFormat = (command: string, commandValue?: string) => {
+    if (disabled) return;
+    editorRef.current?.focus();
+    document.execCommand(command, false, commandValue);
+    emitChange();
   };
 
   const handleAttachPick = () => {
@@ -66,13 +84,17 @@ export default function MarkdownEditor({
 
     setUploading(true);
     setUploadError('');
+    const localName = file.name;
     try {
       const formData = new FormData();
       formData.append('file', file);
       const res = await taskAPI.uploadAttachment(workspaceId, formData);
       const uploaded = res.data.attachment;
       if (uploaded?.fileUrl) {
-        onAttachmentsChange([...attachments, uploaded]);
+        onAttachmentsChange([
+          ...attachments,
+          { ...uploaded, fileName: uploaded.fileName || localName },
+        ]);
       }
     } catch {
       setUploadError(t('tasks.uploadError'));
@@ -88,27 +110,17 @@ export default function MarkdownEditor({
   return (
     <div className={`markdown-editor ${disabled ? 'is-disabled' : ''}`}>
       <div className="markdown-editor-toolbar">
-        <button
-          type="button"
-          title={t('tasks.bold')}
-          disabled={disabled}
-          onClick={() => runEdit((sel) => wrapSelection(sel, '**', '**', t('tasks.markdownPlaceholder')))}
-        >
+        <button type="button" title={t('tasks.bold')} disabled={disabled} onClick={() => applyFormat('bold')}>
           <i className="fas fa-bold" />
         </button>
-        <button
-          type="button"
-          title={t('tasks.italic')}
-          disabled={disabled}
-          onClick={() => runEdit((sel) => wrapSelection(sel, '*', '*', t('tasks.markdownPlaceholder')))}
-        >
+        <button type="button" title={t('tasks.italic')} disabled={disabled} onClick={() => applyFormat('italic')}>
           <i className="fas fa-italic" />
         </button>
         <button
           type="button"
           title={t('tasks.list')}
           disabled={disabled}
-          onClick={() => runEdit((sel) => applyBulletList(sel, t('tasks.markdownListItem')))}
+          onClick={() => applyFormat('insertUnorderedList')}
         >
           <i className="fas fa-list-ul" />
         </button>
@@ -117,7 +129,7 @@ export default function MarkdownEditor({
           type="button"
           title={t('tasks.alignLeft')}
           disabled={disabled}
-          onClick={() => runEdit((sel) => applyAlignBlock(sel, 'left', t('tasks.markdownPlaceholder')))}
+          onClick={() => applyFormat('justifyLeft')}
         >
           <i className="fas fa-align-left" />
         </button>
@@ -125,7 +137,7 @@ export default function MarkdownEditor({
           type="button"
           title={t('tasks.alignCenter')}
           disabled={disabled}
-          onClick={() => runEdit((sel) => applyAlignBlock(sel, 'center', t('tasks.markdownPlaceholder')))}
+          onClick={() => applyFormat('justifyCenter')}
         >
           <i className="fas fa-align-center" />
         </button>
@@ -133,7 +145,7 @@ export default function MarkdownEditor({
           type="button"
           title={t('tasks.alignRight')}
           disabled={disabled}
-          onClick={() => runEdit((sel) => applyAlignBlock(sel, 'right', t('tasks.markdownPlaceholder')))}
+          onClick={() => applyFormat('justifyRight')}
         >
           <i className="fas fa-align-right" />
         </button>
@@ -155,17 +167,21 @@ export default function MarkdownEditor({
         />
       </div>
 
-      <textarea
-        ref={textareaRef}
-        className="markdown-editor-textarea"
-        placeholder={placeholder}
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => {
+      <div
+        ref={editorRef}
+        className="markdown-editor-body markdown-content"
+        contentEditable={!disabled}
+        role="textbox"
+        aria-multiline="true"
+        data-placeholder={placeholder}
+        suppressContentEditableWarning
+        onInput={emitChange}
+        onBlur={emitChange}
+        onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
           if (e.key === 'Tab') {
             e.preventDefault();
-            runEdit((sel) => wrapSelection(sel, '  ', '', ''));
+            document.execCommand('insertText', false, '  ');
+            emitChange();
           }
         }}
       />
@@ -196,7 +212,6 @@ export default function MarkdownEditor({
       )}
 
       {uploadError && <p className="markdown-editor-error">{uploadError}</p>}
-      <p className="markdown-editor-hint">{t('tasks.markdownHint')}</p>
     </div>
   );
 }

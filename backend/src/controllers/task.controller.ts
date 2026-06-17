@@ -10,6 +10,7 @@ import {
 } from '../utils/workspaceRoles';
 import { enrichTaskDescription, translateTaskComment } from '../services/taskAi';
 import { isValidTranslation } from '../utils/llmOutputSanitize';
+import { decodeUploadedFileName } from '../utils/fileUpload';
 
 const prisma = new PrismaClient();
 
@@ -140,7 +141,7 @@ export const uploadTaskAttachment = async (req: AuthRequest, res: Response) => {
   const fileUrl = `/uploads/tasks/${req.file.filename}`;
   return res.json({
     attachment: {
-      fileName: req.file.originalname,
+      fileName: decodeUploadedFileName(req.file.originalname),
       fileUrl,
       fileSize: req.file.size,
       mimeType: req.file.mimetype,

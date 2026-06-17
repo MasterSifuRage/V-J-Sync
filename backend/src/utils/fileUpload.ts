@@ -6,6 +6,17 @@ function ensureDir(dir: string) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
+/** Multer gửi tên file UTF-8 dưới dạng latin1 — chuyển lại để hiển thị đúng tiếng Việt/Nhật. */
+export function decodeUploadedFileName(name: string): string {
+  if (!name) return name;
+  try {
+    const decoded = Buffer.from(name, 'latin1').toString('utf8');
+    return decoded.includes('\uFFFD') ? name : decoded;
+  } catch {
+    return name;
+  }
+}
+
 function diskStorage(subdir: string) {
   return multer.diskStorage({
     destination: (_req, _file, cb) => {
@@ -14,9 +25,10 @@ function diskStorage(subdir: string) {
       cb(null, dest);
     },
     filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname) || '';
-      const base = path.basename(file.originalname, ext).replace(/[^\w.-]+/g, '_').slice(0, 80);
-      cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}-${base}${ext}`);
+      const original = decodeUploadedFileName(file.originalname);
+      const ext = path.extname(original) || '';
+      const base = path.basename(original, ext).replace(/[^\w\u00C0-\u024F\u3040-\u30FF\u4E00-\u9FFF.-]+/g, '_').slice(0, 80);
+      cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}-${base || 'file'}${ext}`);
     },
   });
 }

@@ -1,17 +1,22 @@
 import { describe, it, expect } from 'vitest';
-import { applyBulletList, wrapSelection } from './markdownToolbar';
+import { editorHtmlToMarkdown, markdownToEditorHtml } from './richTextMarkdown';
 import { renderMarkdownHtml } from './markdown';
 
-describe('markdownToolbar', () => {
-  it('wraps selection with bold markers', () => {
-    const result = wrapSelection({ value: 'hello world', start: 6, end: 11 }, '**', '**', 'text');
-    expect(result.value).toBe('hello **world**');
-    expect(result.cursor).toBe(15);
+describe('richTextMarkdown', () => {
+  it('converts bold html to markdown', () => {
+    const md = editorHtmlToMarkdown('<p><strong>hello</strong></p>');
+    expect(md).toContain('**hello**');
   });
 
-  it('creates bullet list lines', () => {
-    const result = applyBulletList({ value: 'a\nb', start: 0, end: 3 }, 'item');
-    expect(result.value).toBe('- a\n- b');
+  it('round-trips bold through editor html', () => {
+    const html = markdownToEditorHtml('**bold** text');
+    expect(html).toContain('<strong>bold</strong>');
+    const md = editorHtmlToMarkdown(html);
+    expect(md).toContain('**bold**');
+  });
+
+  it('returns empty for blank editor', () => {
+    expect(editorHtmlToMarkdown('<div><br></div>')).toBe('');
   });
 });
 
