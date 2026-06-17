@@ -133,9 +133,11 @@ export default function ReminderDetailPage() {
                 <i className="fas fa-edit" /> {t('common.edit')}
               </button>
             )}
-            <button className="btn-delete" onClick={handleDelete} disabled={deleting}>
-              <i className="fas fa-trash" /> {deleting ? t('common.deleting') : t('common.delete')}
-            </button>
+            {!employeeView && (
+              <button className="btn-delete" onClick={handleDelete} disabled={deleting}>
+                <i className="fas fa-trash" /> {deleting ? t('common.deleting') : t('common.delete')}
+              </button>
+            )}
           </div>
         </div>
 
