@@ -8,6 +8,9 @@ export type DisplayMessage = {
   createdAt: string;
   senderId: string;
   sender: User;
+  fileUrl?: string | null;
+  fileName?: string | null;
+  fileType?: string | null;
   isPinned: boolean;
   pinnedByUserId: string | null;
   isHidden: boolean;
@@ -21,6 +24,9 @@ export function messageToDisplay(m: Message): DisplayMessage {
     createdAt: m.createdAt,
     senderId: m.senderId,
     sender: m.sender,
+    fileUrl: m.fileUrl,
+    fileName: m.fileName,
+    fileType: m.fileType,
     isPinned: m.isPinned ?? false,
     pinnedByUserId: m.pinnedByUserId ?? null,
     isHidden: m.isHidden ?? false,
@@ -35,6 +41,9 @@ export function dmToDisplay(m: DirectMsg, _currentUserId: string): DisplayMessag
     createdAt: m.createdAt,
     senderId: m.senderId,
     sender: m.sender,
+    fileUrl: m.fileUrl,
+    fileName: m.fileName,
+    fileType: null,
     isPinned: m.isPinned ?? false,
     pinnedByUserId: m.pinnedByUserId ?? null,
     isHidden: m.isHidden ?? false,

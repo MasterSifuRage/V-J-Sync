@@ -5,7 +5,7 @@ import axios from 'axios';
 import { useAuthStore } from '../../store/authStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { channelAPI, messageAPI, workspaceAPI, aiAPI } from '../../services/api';
-import { Channel, Message, User, Workspace, WorkspaceMember } from '../../types';
+import { Channel, DirectMsg, Message, User, Workspace, WorkspaceMember } from '../../types';
 import io, { Socket } from 'socket.io-client';
 import Sidebar from '../../components/layout/Sidebar';
 import { getStoredToken } from '../../lib/authToken';
@@ -26,11 +26,18 @@ import {
   sortWorkspaces,
 } from './chatTypes';
 import ChatUnreadBadge from './ChatUnreadBadge';
+import ChatMessageFile, { type ChatFileItem } from './ChatMessageFile';
 import UserAvatar from '../../components/common/UserAvatar';
 import '../tasks/TaskDetailPage.css';
 import './ChatPage.css';
 
 const EMOJI_LIST = ['😀', '😂', '👍', '❤️', '🎉', '🙏', '✅', '🔥', '💡', '👋', '😊', '🤔'];
+
+type PendingChatFile = {
+  fileName: string;
+  fileUrl: string;
+  fileType?: string;
+};
 
 export default function ChatPage() {
   const { t, i18n } = useTranslation();
@@ -71,12 +78,16 @@ export default function ChatPage() {
   const [showDmPicker, setShowDmPicker] = useState(false);
   const [dmPickerWsId, setDmPickerWsId] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState<PendingChatFile | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [sharedFiles, setSharedFiles] = useState<ChatFileItem[]>([]);
 
   const [unreadChannels, setUnreadChannels] = useState<Record<string, number>>({});
   const [unreadDms, setUnreadDms] = useState<Record<string, number>>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const socketRef = useRef<Socket | null>(null);
   const activeDmUserIdRef = useRef<string | null>(null);
   const selectedChannelIdRef = useRef<string | null>(null);
@@ -218,6 +229,37 @@ export default function ChatPage() {
     refreshChannelDetailRef.current = refreshChannelDetail;
   }, [refreshChannelDetail]);
 
+  const loadSharedFiles = useCallback(async () => {
+    if (chatMode === 'channel' && selectedChannel) {
+      try {
+        const res = await messageAPI.getChannelFiles(selectedChannel.id);
+        setSharedFiles(res.data.files ?? []);
+      } catch {
+        setSharedFiles([]);
+      }
+      return;
+    }
+    if (chatMode === 'dm' && selectedDmUser && currentWorkspace) {
+      try {
+        const res = await messageAPI.getDmFiles(currentWorkspace.id, selectedDmUser.id);
+        setSharedFiles(res.data.files ?? []);
+      } catch {
+        setSharedFiles([]);
+      }
+      return;
+    }
+    setSharedFiles([]);
+  }, [chatMode, selectedChannel, selectedDmUser, currentWorkspace]);
+
+  const loadSharedFilesRef = useRef(loadSharedFiles);
+  useEffect(() => {
+    loadSharedFilesRef.current = loadSharedFiles;
+  }, [loadSharedFiles]);
+
+  useEffect(() => {
+    void loadSharedFiles();
+  }, [loadSharedFiles]);
+
   useEffect(() => {
     if (chatMode !== 'channel' || !selectedChannel) {
       setChannelDetail(null);
@@ -249,23 +291,8 @@ export default function ChatPage() {
       setIsLoadingMessages(true);
       try {
         const res = await messageAPI.getDMs(currentWorkspace.id, otherUserId);
-        const raw = res.data.messages || res.data;
-        setMessages(
-          raw.map((m: Message & { senderId: string }) =>
-            dmToDisplay(
-              {
-                id: m.id,
-                workspaceId: currentWorkspace.id,
-                senderId: m.senderId,
-                receiverId: otherUserId,
-                content: m.content,
-                createdAt: m.createdAt,
-                sender: m.sender,
-              },
-              user!.id
-            )
-          )
-        );
+        const raw: DirectMsg[] = res.data.messages || res.data;
+        setMessages(raw.map((m) => dmToDisplay(m, user!.id)));
         await markDmAsRead(currentWorkspace.id, otherUserId);
       } catch {
         setMessages([]);
@@ -314,6 +341,7 @@ export default function ChatPage() {
           return [...prev, messageToDisplay(msg)];
         });
         void refreshChannelDetailRef.current(msg.channelId);
+        void loadSharedFilesRef.current();
         if (msg.senderId !== uid) {
           void messageAPI.markChannelRead(msg.channelId);
         }
@@ -328,7 +356,7 @@ export default function ChatPage() {
       }
     });
 
-    socket.on('new_dm', (dm: Message & { receiverId: string; workspaceId: string }) => {
+    socket.on('new_dm', (dm: DirectMsg) => {
       const uid = userIdRef.current;
       if (!uid) return;
       if (dm.senderId !== uid && dm.receiverId !== uid) return;
@@ -342,8 +370,9 @@ export default function ChatPage() {
       if (viewing) {
         setMessages((prev) => {
           if (prev.some((m) => m.id === dm.id)) return prev;
-          return [...prev, messageToDisplay(dm)];
+          return [...prev, dmToDisplay(dm, uid)];
         });
+        void loadSharedFilesRef.current();
         if (dm.receiverId === uid && currentWorkspaceIdRef.current) {
           void messageAPI.markDmRead(currentWorkspaceIdRef.current, dm.senderId);
         }
@@ -466,6 +495,7 @@ export default function ChatPage() {
     setSelectedChannel(channel);
     setSelectedDmUser(null);
     setTranslations({});
+    setPendingAttachment(null);
     clearChannelUnread(channel.id);
     navigate(`/chat/${channel.id}`, { replace: true });
   };
@@ -477,6 +507,7 @@ export default function ChatPage() {
     setSelectedDmUser(member.user);
     setSelectedChannel(null);
     setTranslations({});
+    setPendingAttachment(null);
     setShowDmPicker(false);
     clearDmUnread(member.userId);
     navigate('/chat', { replace: true });
@@ -489,27 +520,74 @@ export default function ChatPage() {
     return ch + dm;
   };
 
+  const handleAttachPick = () => {
+    if (!uploadingFile && (selectedChannel || selectedDmUser)) {
+      fileInputRef.current?.click();
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !currentWorkspace) return;
+    if (file.size > 10 * 1024 * 1024) {
+      window.alert(t('chat.attachmentTooLarge'));
+      return;
+    }
+    setUploadingFile(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await messageAPI.uploadAttachment(currentWorkspace.id, formData);
+      const uploaded = res.data.attachment;
+      if (uploaded?.fileUrl) {
+        setPendingAttachment({
+          fileName: uploaded.fileName || file.name,
+          fileUrl: uploaded.fileUrl,
+          fileType: uploaded.fileType,
+        });
+      }
+    } catch {
+      window.alert(t('chat.uploadError'));
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
   const handleSendMessage = useCallback(async () => {
-    const content = inputRef.current?.innerText?.trim();
-    if (!content) return;
+    const content = inputRef.current?.innerText?.trim() ?? '';
+    const attachment = pendingAttachment;
+    if (!content && !attachment) return;
+
+    const filePayload = attachment
+      ? {
+          fileUrl: attachment.fileUrl,
+          fileName: attachment.fileName,
+          fileType: attachment.fileType,
+        }
+      : {};
 
     if (chatMode === 'channel' && selectedChannel) {
       if (inputRef.current) inputRef.current.innerText = '';
+      setPendingAttachment(null);
       setShowEmojiPicker(false);
 
       const socket = socketRef.current;
       if (socket?.connected) {
-        socket.emit('send_message', { channelId: selectedChannel.id, content });
+        socket.emit('send_message', { channelId: selectedChannel.id, content, ...filePayload });
+        void loadSharedFilesRef.current();
         return;
       }
 
       try {
-        const res = await messageAPI.send(selectedChannel.id, { content });
+        const res = await messageAPI.send(selectedChannel.id, { content, ...filePayload });
         const msg: Message = res.data.message ?? res.data;
         appendMessage(messageToDisplay(msg));
         void refreshChannelDetail(selectedChannel.id);
+        void loadSharedFilesRef.current();
       } catch {
         if (inputRef.current) inputRef.current.innerText = content;
+        if (attachment) setPendingAttachment(attachment);
         window.alert(t('chat.sendFailed'));
       }
       return;
@@ -517,6 +595,7 @@ export default function ChatPage() {
 
     if (chatMode === 'dm' && selectedDmUser && currentWorkspace) {
       if (inputRef.current) inputRef.current.innerText = '';
+      setPendingAttachment(null);
       setShowEmojiPicker(false);
 
       const socket = socketRef.current;
@@ -525,24 +604,39 @@ export default function ChatPage() {
           workspaceId: currentWorkspace.id,
           receiverId: selectedDmUser.id,
           content,
+          fileUrl: attachment?.fileUrl,
+          fileName: attachment?.fileName,
         });
+        void loadSharedFilesRef.current();
         return;
       }
 
       try {
-        const res = await messageAPI.sendDM(currentWorkspace.id, selectedDmUser.id, { content });
-        const dm: Message & { receiverId: string; workspaceId: string } = {
-          ...(res.data.message ?? res.data),
-          receiverId: selectedDmUser.id,
-          workspaceId: currentWorkspace.id,
-        };
-        appendMessage(messageToDisplay(dm));
+        const res = await messageAPI.sendDM(currentWorkspace.id, selectedDmUser.id, {
+          content,
+          fileUrl: attachment?.fileUrl,
+          fileName: attachment?.fileName,
+        });
+        const dm = res.data.message ?? res.data;
+        appendMessage(dmToDisplay(dm as DirectMsg, user!.id));
+        void loadSharedFilesRef.current();
       } catch {
         if (inputRef.current) inputRef.current.innerText = content;
+        if (attachment) setPendingAttachment(attachment);
         window.alert(t('chat.sendFailed'));
       }
     }
-  }, [chatMode, selectedChannel, selectedDmUser, currentWorkspace, appendMessage, refreshChannelDetail]);
+  }, [
+    chatMode,
+    selectedChannel,
+    selectedDmUser,
+    currentWorkspace,
+    pendingAttachment,
+    appendMessage,
+    refreshChannelDetail,
+    user,
+    t,
+  ]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1064,7 +1158,18 @@ export default function ChatPage() {
                           })}
                         </span>
                       </div>
-                      <div className="message-content">{msg.content}</div>
+                      <div className="message-content">
+                        {msg.fileUrl && msg.fileName ? (
+                          <ChatMessageFile
+                            file={{
+                              fileName: msg.fileName,
+                              fileUrl: msg.fileUrl,
+                              fileType: msg.fileType,
+                            }}
+                          />
+                        ) : null}
+                        {msg.content ? <div>{msg.content}</div> : null}
+                      </div>
                       <div className="message-actions">
                         {canTogglePin && (
                           <button
@@ -1134,6 +1239,15 @@ export default function ChatPage() {
               </button>
               <button
                 type="button"
+                title={t('chat.attachFile')}
+                disabled={uploadingFile || (!selectedChannel && !selectedDmUser)}
+                onClick={handleAttachPick}
+              >
+                <i className={uploadingFile ? 'fas fa-spinner fa-spin' : 'fas fa-paperclip'} />
+              </button>
+              <input ref={fileInputRef} type="file" hidden onChange={handleFileChange} />
+              <button
+                type="button"
                 title={t('chat.translateDraft')}
                 onClick={async () => {
                   const text = inputRef.current?.innerText?.trim();
@@ -1153,6 +1267,19 @@ export default function ChatPage() {
                 <i className="fas fa-language" />
               </button>
             </div>
+            {pendingAttachment && (
+              <div className="chat-pending-attachment">
+                <i className="fas fa-paperclip" aria-hidden />
+                <span>{pendingAttachment.fileName}</span>
+                <button
+                  type="button"
+                  onClick={() => setPendingAttachment(null)}
+                  aria-label={t('chat.removeAttachment')}
+                >
+                  &times;
+                </button>
+              </div>
+            )}
             <div
               className="chat-input-box"
               ref={inputRef}
@@ -1258,7 +1385,25 @@ export default function ChatPage() {
           </div>
           <div className="right-sidebar-section">
             <h5>{t('chat.sharedFiles')}</h5>
-            <p className="right-empty-files">{t('chat.noFiles')}</p>
+            {sharedFiles.length === 0 ? (
+              <p className="right-empty-files">{t('chat.noFiles')}</p>
+            ) : (
+              <ul className="chat-shared-files">
+                {sharedFiles.map((file) => (
+                  <li key={file.id}>
+                    <ChatMessageFile file={file} variant="sidebar" />
+                    {file.senderName && (
+                      <span className="chat-shared-file-meta">
+                        {file.senderName}
+                        {file.createdAt
+                          ? ` · ${new Date(file.createdAt).toLocaleDateString(uiDateLocale(i18n.language))}`
+                          : ''}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       </div>

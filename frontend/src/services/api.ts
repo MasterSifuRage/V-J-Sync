@@ -75,11 +75,18 @@ export const channelAPI = {
 // Message
 export const messageAPI = {
   list: (channelId: string, page = 1) => api.get(`/messages/channel/${channelId}?page=${page}`),
-  send: (channelId: string, data: { content: string; fileUrl?: string; fileName?: string; fileType?: string }) =>
+  send: (channelId: string, data: { content?: string; fileUrl?: string; fileName?: string; fileType?: string }) =>
     api.post(`/messages/channel/${channelId}`, data),
+  getChannelFiles: (channelId: string) => api.get(`/messages/channel/${channelId}/files`),
+  uploadAttachment: (workspaceId: string, formData: FormData) =>
+    api.post(`/messages/workspace/${workspaceId}/attachments`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
   getDMs: (workspaceId: string, userId: string, page = 1) =>
     api.get(`/messages/dm/${workspaceId}/${userId}?page=${page}`),
-  sendDM: (workspaceId: string, userId: string, data: { content: string }) =>
+  getDmFiles: (workspaceId: string, userId: string) =>
+    api.get(`/messages/dm/${workspaceId}/${userId}/files`),
+  sendDM: (workspaceId: string, userId: string, data: { content?: string; fileUrl?: string; fileName?: string }) =>
     api.post(`/messages/dm/${workspaceId}/${userId}`, data),
   getUnread: (workspaceId: string) => api.get(`/messages/unread/${workspaceId}`),
   markChannelRead: (channelId: string) => api.post(`/messages/read/channel/${channelId}`),

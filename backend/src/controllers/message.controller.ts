@@ -6,6 +6,7 @@ import { countUnreadForWorkspace, markChatRead } from '../utils/chatUnread';
 import { ensureChannelMemberOnChat } from '../utils/channelMembers';
 import { getSocketIo } from '../socket/ioInstance';
 import { canModerateAllChatMessages, getWorkspaceMember } from '../utils/workspaceRoles';
+import { decodeUploadedFileName } from '../utils/fileUpload';
 
 const prisma = new PrismaClient();
 
@@ -75,6 +76,97 @@ export const getMessages = async (req: AuthRequest, res: Response) => {
   return res.json({ messages, total, page, totalPages: Math.ceil(total / limit) });
 };
 
+const fileSelect = {
+  id: true,
+  fileName: true,
+  fileUrl: true,
+  fileType: true,
+  createdAt: true,
+  sender: { select: { id: true, name: true } },
+} as const;
+
+export const getChannelFiles = async (req: AuthRequest, res: Response) => {
+  const channelId = routeParam(req.params.channelId);
+  const files = await prisma.message.findMany({
+    where: { channelId, fileUrl: { not: null }, isHidden: false },
+    select: fileSelect,
+    orderBy: { createdAt: 'desc' },
+  });
+  return res.json({
+    files: files.map((f) => ({
+      id: f.id,
+      fileName: f.fileName,
+      fileUrl: f.fileUrl,
+      fileType: f.fileType,
+      createdAt: f.createdAt,
+      senderName: f.sender.name,
+    })),
+  });
+};
+
+export const getDmFiles = async (req: AuthRequest, res: Response) => {
+  const workspaceId = routeParam(req.params.workspaceId);
+  const peerUserId = routeParam(req.params.userId);
+  const viewerId = req.user!.id;
+
+  const files = await prisma.directMessage.findMany({
+    where: {
+      workspaceId,
+      fileUrl: { not: null },
+      isHidden: false,
+      OR: [
+        { senderId: viewerId, receiverId: peerUserId },
+        { senderId: peerUserId, receiverId: viewerId },
+      ],
+    },
+    select: {
+      id: true,
+      fileName: true,
+      fileUrl: true,
+      createdAt: true,
+      sender: { select: { id: true, name: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return res.json({
+    files: files.map((f) => ({
+      id: f.id,
+      fileName: f.fileName,
+      fileUrl: f.fileUrl,
+      createdAt: f.createdAt,
+      senderName: f.sender.name,
+    })),
+  });
+};
+
+export const uploadChatAttachment = async (req: AuthRequest, res: Response) => {
+  const workspaceId = routeParam(req.params.workspaceId);
+  const userId = req.user!.id;
+  const member = await getWorkspaceMember(userId, workspaceId);
+  if (!member) {
+    return res.status(403).json({ error: 'Bạn không phải thành viên của workspace này.' });
+  }
+  if (!req.file) {
+    return res.status(400).json({ error: 'Vui lòng chọn file đính kèm.' });
+  }
+
+  const fileName = decodeUploadedFileName(req.file.originalname);
+  const fileUrl = `/uploads/chat/${req.file.filename}`;
+  const mime = req.file.mimetype || '';
+  const fileType = mime.startsWith('image/') ? 'image' : 'file';
+
+  return res.json({
+    attachment: {
+      fileName,
+      fileUrl,
+      fileSize: req.file.size,
+      mimeType: mime,
+      fileType,
+    },
+  });
+};
+
 export const createMessage = async (req: AuthRequest, res: Response) => {
   const channelId = routeParam(req.params.channelId);
   const { content, parentId, fileUrl, fileName, fileType } = req.body;
@@ -115,6 +207,9 @@ export const createDM = async (req: AuthRequest, res: Response) => {
   const workspaceId = routeParam(req.params.workspaceId);
   const userId = routeParam(req.params.userId);
   const { content, fileUrl, fileName } = req.body;
+  if (!content?.trim() && !fileUrl) {
+    return res.status(400).json({ error: 'Nội dung tin nhắn không được trống.' });
+  }
 
   const dm = await prisma.directMessage.create({
     data: { workspaceId, senderId: req.user!.id, receiverId: userId, content: content || '', fileUrl, fileName },

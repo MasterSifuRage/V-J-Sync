@@ -63,6 +63,8 @@ export interface DirectMsg {
   receiverId: string;
   content: string;
   translatedContent?: string;
+  fileUrl?: string;
+  fileName?: string;
   createdAt: string;
   sender: User;
   isPinned?: boolean;

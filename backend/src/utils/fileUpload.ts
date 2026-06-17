@@ -43,6 +43,11 @@ export const taskAttachmentUpload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
+export const chatAttachmentUpload = multer({
+  storage: diskStorage('chat'),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
 export function publicUploadUrl(relativePath: string): string {
   return `/uploads/${relativePath.replace(/^\/+/, '')}`;
 }

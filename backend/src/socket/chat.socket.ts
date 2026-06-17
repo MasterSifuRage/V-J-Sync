@@ -55,11 +55,15 @@ export function setupSocket(io: Server) {
 
     socket.on('send_message', async (data: { channelId: string; content: string; fileUrl?: string; fileName?: string; fileType?: string }) => {
       try {
+        if (!data.content?.trim() && !data.fileUrl) {
+          socket.emit('error', { message: 'Nội dung tin nhắn không được trống.' });
+          return;
+        }
         const message = await prisma.message.create({
           data: {
             channelId: data.channelId,
             senderId: socket.userId!,
-            content: data.content,
+            content: data.content || '',
             fileUrl: data.fileUrl,
             fileName: data.fileName,
             fileType: data.fileType || 'text',
@@ -79,14 +83,20 @@ export function setupSocket(io: Server) {
       }
     });
 
-    socket.on('send_dm', async (data: { workspaceId: string; receiverId: string; content: string }) => {
+    socket.on('send_dm', async (data: { workspaceId: string; receiverId: string; content: string; fileUrl?: string; fileName?: string }) => {
       try {
+        if (!data.content?.trim() && !data.fileUrl) {
+          socket.emit('error', { message: 'Nội dung tin nhắn không được trống.' });
+          return;
+        }
         const dm = await prisma.directMessage.create({
           data: {
             workspaceId: data.workspaceId,
             senderId: socket.userId!,
             receiverId: data.receiverId,
-            content: data.content,
+            content: data.content || '',
+            fileUrl: data.fileUrl,
+            fileName: data.fileName,
           },
           include: {
             sender: { select: { id: true, name: true, avatarUrl: true, preferredLanguage: true } },
