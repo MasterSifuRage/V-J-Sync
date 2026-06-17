@@ -3,8 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { taskAPI, workspaceAPI } from '../../services/api';
-import { WorkspaceMember } from '../../types';
+import { WorkspaceMember, TaskAttachment } from '../../types';
 import { ROLE } from '../../lib/workspaceRole';
+import MarkdownEditor from '../../components/common/MarkdownEditor';
 import './TaskCreatePage.css';
 
 const PRIORITY_OPTIONS = ['normal', 'high', 'urgent'] as const;
@@ -22,6 +23,7 @@ export default function TaskCreatePage() {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [autoTranslate, setAutoTranslate] = useState(false);
+  const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -71,6 +73,12 @@ export default function TaskCreatePage() {
         dueDate: dueDate || undefined,
         assigneeId,
         autoTranslate,
+        attachments: attachments.map(({ fileName, fileUrl, fileSize, mimeType }) => ({
+          fileName,
+          fileUrl,
+          fileSize,
+          mimeType,
+        })),
       });
       navigate('/tasks');
     } catch (err: unknown) {
@@ -114,44 +122,15 @@ export default function TaskCreatePage() {
 
           <div className="form-group">
             <label>{t('common.description')}</label>
-            <div className="description-editor">
-              <div className="description-toolbar">
-                <button type="button" title="Bold">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6z" />
-                    <path d="M6 12h9a4 4 0 014 4 4 4 0 01-4 4H6z" />
-                  </svg>
-                </button>
-                <button type="button" title="Italic">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="19" y1="4" x2="10" y2="4" />
-                    <line x1="14" y1="20" x2="5" y2="20" />
-                    <line x1="15" y1="4" x2="9" y2="20" />
-                  </svg>
-                </button>
-                <button type="button" title="List">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="8" y1="6" x2="21" y2="6" />
-                    <line x1="8" y1="12" x2="21" y2="12" />
-                    <line x1="8" y1="18" x2="21" y2="18" />
-                    <line x1="3" y1="6" x2="3.01" y2="6" />
-                    <line x1="3" y1="12" x2="3.01" y2="12" />
-                    <line x1="3" y1="18" x2="3.01" y2="18" />
-                  </svg>
-                </button>
-                <button type="button" title={t('tasks.attach')}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
-                  </svg>
-                </button>
-              </div>
-              <textarea
-                className="description-textarea"
-                placeholder={t('tasks.descPlaceholder')}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </div>
+            <MarkdownEditor
+              value={description}
+              onChange={setDescription}
+              placeholder={t('tasks.descPlaceholder')}
+              workspaceId={currentWorkspace.id}
+              attachments={attachments}
+              onAttachmentsChange={setAttachments}
+              disabled={submitting}
+            />
           </div>
 
           <label

@@ -71,6 +71,16 @@ export interface DirectMsg {
   hiddenByUserId?: string | null;
 }
 
+export interface TaskAttachment {
+  id?: string;
+  taskId?: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize?: number;
+  mimeType?: string;
+  createdAt?: string;
+}
+
 export interface Task {
   id: string;
   workspaceId: string;
@@ -90,6 +100,7 @@ export interface Task {
   assignee?: User;
   _count?: { comments: number };
   comments?: TaskComment[];
+  attachments?: TaskAttachment[];
   createdAt: string;
 }
 

@@ -173,6 +173,21 @@ model Task {
   creator   User          @relation("TaskCreator", fields: [creatorId], references: [id])
   assignee  User?         @relation("TaskAssignee", fields: [assigneeId], references: [id])
   comments  TaskComment[]
+  attachments TaskAttachment[]
+}
+
+model TaskAttachment {
+  id        String   @id @default(uuid())
+  taskId    String
+  fileName  String
+  fileUrl   String
+  fileSize  Int?
+  mimeType  String?
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
 }
 
 model TaskComment {

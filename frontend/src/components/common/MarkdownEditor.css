@@ -1,0 +1,139 @@
+.markdown-editor {
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.markdown-editor:focus-within {
+  border-color: #1e40af;
+  box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
+}
+
+.markdown-editor.is-disabled {
+  opacity: 0.7;
+}
+
+.markdown-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.markdown-editor-toolbar button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  transition: background 0.15s, color 0.15s;
+}
+
+.markdown-editor-toolbar button:hover:not(:disabled) {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.markdown-editor-toolbar button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.markdown-editor-divider {
+  width: 1px;
+  height: 20px;
+  background: #e2e8f0;
+  margin: 0 4px;
+}
+
+.markdown-editor-textarea {
+  width: 100%;
+  min-height: 160px;
+  padding: 14px 16px;
+  border: none;
+  font-size: 14px;
+  color: #1e293b;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+  background: #fff;
+  box-sizing: border-box;
+  font-family: 'Inter', sans-serif;
+}
+
+.markdown-editor-textarea::placeholder {
+  color: #94a3b8;
+}
+
+.markdown-editor-attachments {
+  list-style: none;
+  margin: 0;
+  padding: 8px 12px;
+  border-top: 1px solid #e2e8f0;
+  background: #fafbfc;
+}
+
+.markdown-editor-attachments li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+  color: #334155;
+}
+
+.markdown-editor-attachments li + li {
+  border-top: 1px dashed #e2e8f0;
+}
+
+.markdown-editor-attachment-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.markdown-editor-attachment-size {
+  color: #94a3b8;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.markdown-editor-attachment-remove {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.markdown-editor-attachment-remove:hover:not(:disabled) {
+  color: #dc2626;
+}
+
+.markdown-editor-error {
+  margin: 0;
+  padding: 0 16px 8px;
+  font-size: 12px;
+  color: #dc2626;
+}
+
+.markdown-editor-hint {
+  margin: 0;
+  padding: 8px 16px 12px;
+  font-size: 12px;
+  color: #94a3b8;
+}

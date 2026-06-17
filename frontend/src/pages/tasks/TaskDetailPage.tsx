@@ -15,6 +15,8 @@ import {
 import { useTranslateTarget } from '../../hooks/useTranslateTarget';
 import { Task, TaskComment } from '../../types';
 import UserAvatar from '../../components/common/UserAvatar';
+import MarkdownContent from '../../components/common/MarkdownContent';
+import TaskAttachmentList from '../../components/tasks/TaskAttachmentList';
 import {
   TaskTranslationBlock,
   AiDisclaimerNote,
@@ -431,8 +433,9 @@ export default function TaskDetailPage() {
 
       <div className="task-detail-layout">
         <div className="task-detail-main">
-          {task.description && (
+          {(task.description || (task.attachments?.length ?? 0) > 0) && (
             <>
+              {task.description && (
               <div className="task-detail-card">
                 <h3 className="section-title">
                   <i className="fas fa-file-alt" /> {t('tasks.summaryTitle')}
@@ -464,22 +467,28 @@ export default function TaskDetailPage() {
                   <div className="task-description-empty">{t('tasks.noSummary')}</div>
                 )}
               </div>
+              )}
 
               <div className="task-detail-card">
                 <h3 className="section-title">
                   <i className="fas fa-align-left" /> {t('tasks.detailDescription')}
                 </h3>
-                <DescriptionText text={task.description} />
-                {!autoTranslateEnabled &&
+                {task.description ? (
+                  <MarkdownContent markdown={task.description} className="task-description-content" />
+                ) : (
+                  <div className="task-description-empty">{t('tasks.noDescription')}</div>
+                )}
+                {task.attachments?.length ? <TaskAttachmentList attachments={task.attachments} /> : null}
+                {task.description && !autoTranslateEnabled &&
                   renderTranslateButton(
                     descExpanded,
                     descTranslating,
                     toggleDescTranslate,
                     descNeedsTranslation,
                   )}
-                {descNeedsTranslation && showDescTranslation
+                {task.description && descNeedsTranslation && showDescTranslation
                   ? renderTranslationBlock(descTranslation)
-                  : descNeedsTranslation && autoTranslateEnabled && translationLoading ? (
+                  : task.description && descNeedsTranslation && autoTranslateEnabled && translationLoading ? (
                     <div className="task-ai-loading task-ai-loading--inline">
                       <i className="fas fa-spinner fa-spin" /> {t('tasks.aiProcessing')}
                     </div>
@@ -488,7 +497,7 @@ export default function TaskDetailPage() {
             </>
           )}
 
-          {!task.description && (
+          {!task.description && !(task.attachments?.length ?? 0) && (
             <div className="task-detail-card">
               <h3 className="section-title">
                 <i className="fas fa-align-left" /> {t('tasks.detailDescription')}

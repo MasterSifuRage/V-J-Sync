@@ -98,6 +98,10 @@ export const taskAPI = {
     api.get(`/tasks/workspace/${workspaceId}`, { params }),
   create: (workspaceId: string, data: any) =>
     api.post(`/tasks/workspace/${workspaceId}`, data),
+  uploadAttachment: (workspaceId: string, formData: FormData) =>
+    api.post(`/tasks/workspace/${workspaceId}/attachments`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
   detail: (taskId: string) => api.get(`/tasks/${taskId}`),
   update: (taskId: string, data: any) => api.put(`/tasks/${taskId}`, data),
   delete: (taskId: string) => api.delete(`/tasks/${taskId}`),

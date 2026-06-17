@@ -20,6 +20,7 @@ const taskInclude = {
 
 const taskDetailInclude = {
   ...taskInclude,
+  attachments: { orderBy: { createdAt: 'asc' as const } },
   comments: {
     include: {
       user: { select: { id: true, name: true, avatarUrl: true, preferredLanguage: true } },
@@ -97,6 +98,56 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
   return res.json({ tasks });
 };
 
+type AttachmentInput = {
+  fileName: string;
+  fileUrl: string;
+  fileSize?: number;
+  mimeType?: string;
+};
+
+function normalizeAttachments(raw: unknown): AttachmentInput[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((item): item is AttachmentInput => {
+      if (!item || typeof item !== 'object') return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.fileName === 'string' && typeof row.fileUrl === 'string';
+    })
+    .map((item) => ({
+      fileName: item.fileName.trim(),
+      fileUrl: item.fileUrl.trim(),
+      fileSize: typeof item.fileSize === 'number' ? item.fileSize : undefined,
+      mimeType: typeof item.mimeType === 'string' ? item.mimeType : undefined,
+    }))
+    .filter((item) => item.fileName && item.fileUrl.startsWith('/uploads/tasks/'));
+}
+
+export const uploadTaskAttachment = async (req: AuthRequest, res: Response) => {
+  const workspaceId = routeParam(req.params.workspaceId);
+  const userId = req.user!.id;
+  const member = await getWorkspaceMember(userId, workspaceId);
+
+  if (!member) {
+    return res.status(403).json({ error: 'Bạn không phải thành viên của workspace này.' });
+  }
+  if (!canCreateTask(member.roleId)) {
+    return res.status(403).json({ error: 'Chỉ Quản lý hoặc Giám đốc mới có thể đính kèm file.' });
+  }
+  if (!req.file) {
+    return res.status(400).json({ error: 'Vui lòng chọn file đính kèm.' });
+  }
+
+  const fileUrl = `/uploads/tasks/${req.file.filename}`;
+  return res.json({
+    attachment: {
+      fileName: req.file.originalname,
+      fileUrl,
+      fileSize: req.file.size,
+      mimeType: req.file.mimetype,
+    },
+  });
+};
+
 export const createTask = async (req: AuthRequest, res: Response) => {
   const workspaceId = routeParam(req.params.workspaceId);
   const userId = req.user!.id;
@@ -109,11 +160,12 @@ export const createTask = async (req: AuthRequest, res: Response) => {
     return res.status(403).json({ error: 'Chỉ Quản lý hoặc Giám đốc mới có thể tạo công việc.' });
   }
 
-  const { title, description, status, priority, tags, dueDate, assigneeId, channelId, autoTranslate } =
+  const { title, description, status, priority, tags, dueDate, assigneeId, channelId, autoTranslate, attachments } =
     req.body;
   if (!title) return res.status(400).json({ error: 'Vui lòng nhập tên công việc.' });
 
   const autoTranslateJa = !!autoTranslate;
+  const attachmentRows = normalizeAttachments(attachments);
 
   const task = await prisma.task.create({
     data: {
@@ -128,13 +180,23 @@ export const createTask = async (req: AuthRequest, res: Response) => {
       assigneeId,
       channelId,
       autoTranslateJa,
+      ...(attachmentRows.length > 0 && {
+        attachments: {
+          create: attachmentRows.map((a) => ({
+            fileName: a.fileName,
+            fileUrl: a.fileUrl,
+            fileSize: a.fileSize ?? null,
+            mimeType: a.mimeType ?? null,
+          })),
+        },
+      }),
     },
-    include: taskInclude,
+    include: taskDetailInclude,
   });
 
   if (description?.trim()) {
     await applyTaskDescriptionAi(task.id, description, autoTranslateJa);
-    const full = await prisma.task.findUnique({ where: { id: task.id }, include: taskInclude });
+    const full = await prisma.task.findUnique({ where: { id: task.id }, include: taskDetailInclude });
     return res.status(201).json({ task: full ?? task });
   }
 

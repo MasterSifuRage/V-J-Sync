@@ -5,6 +5,8 @@ dist/
 .env.production
 backend/.env
 *.log
+# Uploads (avatars, task attachments)
 backend/uploads/*
 !backend/uploads/.gitkeep
+!backend/uploads/tasks/.gitkeep
 .DS_Store
