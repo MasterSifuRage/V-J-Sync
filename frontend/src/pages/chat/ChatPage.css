@@ -752,6 +752,21 @@
   background: var(--slack-hover);
 }
 
+.ws-group-header-static {
+  cursor: default;
+}
+
+.ws-group-header-static:hover {
+  background: rgba(14, 165, 233, 0.15);
+}
+
+.ws-group-icon {
+  width: 12px;
+  font-size: 11px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
 .ws-group-chevron {
   font-size: 10px;
   color: #94a3b8;

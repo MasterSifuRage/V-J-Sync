@@ -19,6 +19,32 @@ function parseChannelId(payload: unknown): string | null {
   return null;
 }
 
+async function isWorkspaceMember(userId: string, workspaceId: string) {
+  const member = await prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId, userId } },
+    select: { id: true },
+  });
+  return Boolean(member);
+}
+
+async function canUseChannel(userId: string, channelId: string) {
+  const channel = await prisma.channel.findUnique({
+    where: { id: channelId },
+    select: { workspaceId: true },
+  });
+  if (!channel) return false;
+  return isWorkspaceMember(userId, channel.workspaceId);
+}
+
+async function canUseDm(userId: string, peerUserId: string, workspaceId: string) {
+  if (userId === peerUserId) return false;
+  const [senderMember, receiverMember] = await Promise.all([
+    isWorkspaceMember(userId, workspaceId),
+    isWorkspaceMember(peerUserId, workspaceId),
+  ]);
+  return senderMember && receiverMember;
+}
+
 export function setupSocket(io: Server) {
   io.use(async (socket: AuthSocket, next) => {
     try {
@@ -59,6 +85,10 @@ export function setupSocket(io: Server) {
           socket.emit('error', { message: 'Nội dung tin nhắn không được trống.' });
           return;
         }
+        if (!socket.userId || !(await canUseChannel(socket.userId, data.channelId))) {
+          socket.emit('error', { message: 'Bạn không thuộc workspace của kênh này.' });
+          return;
+        }
         const message = await prisma.message.create({
           data: {
             channelId: data.channelId,
@@ -87,6 +117,10 @@ export function setupSocket(io: Server) {
       try {
         if (!data.content?.trim() && !data.fileUrl) {
           socket.emit('error', { message: 'Nội dung tin nhắn không được trống.' });
+          return;
+        }
+        if (!socket.userId || !(await canUseDm(socket.userId, data.receiverId, data.workspaceId))) {
+          socket.emit('error', { message: 'Hai người dùng không cùng workspace.' });
           return;
         }
         const dm = await prisma.directMessage.create({

@@ -94,6 +94,18 @@ type MessageFileRow = {
   sender: { id: string; name: string };
 };
 
+async function bothUsersInWorkspace(viewerId: string, peerUserId: string, workspaceId: string) {
+  if (viewerId === peerUserId) return false;
+  const [viewerMember, peerMember] = await Promise.all([
+    getWorkspaceMember(viewerId, workspaceId),
+    prisma.workspaceMember.findUnique({
+      where: { workspaceId_userId: { workspaceId, userId: peerUserId } },
+      select: { id: true },
+    }),
+  ]);
+  return Boolean(viewerMember && peerMember);
+}
+
 export const getChannelFiles = async (req: AuthRequest, res: Response) => {
   const channelId = routeParam(req.params.channelId);
   const files = await prisma.message.findMany({
@@ -117,6 +129,10 @@ export const getDmFiles = async (req: AuthRequest, res: Response) => {
   const workspaceId = routeParam(req.params.workspaceId);
   const peerUserId = routeParam(req.params.userId);
   const viewerId = req.user!.id;
+
+  if (!(await bothUsersInWorkspace(viewerId, peerUserId, workspaceId))) {
+    return res.status(403).json({ error: 'Hai người dùng không cùng workspace.' });
+  }
 
   const files = await prisma.directMessage.findMany({
     where: {
@@ -197,6 +213,10 @@ export const getDMs = async (req: AuthRequest, res: Response) => {
   const limit = parseInt(req.query.limit as string) || 50;
   const skip = (page - 1) * limit;
 
+  if (!(await bothUsersInWorkspace(viewerId, userId, workspaceId))) {
+    return res.status(403).json({ error: 'Hai người dùng không cùng workspace.' });
+  }
+
   const messages = await prisma.directMessage.findMany({
     where: {
       workspaceId,
@@ -218,6 +238,10 @@ export const createDM = async (req: AuthRequest, res: Response) => {
   const { content, fileUrl, fileName } = req.body;
   if (!content?.trim() && !fileUrl) {
     return res.status(400).json({ error: 'Nội dung tin nhắn không được trống.' });
+  }
+
+  if (!(await bothUsersInWorkspace(req.user!.id, userId, workspaceId))) {
+    return res.status(403).json({ error: 'Hai người dùng không cùng workspace.' });
   }
 
   const dm = await prisma.directMessage.create({
@@ -252,6 +276,10 @@ export const markDmRead = async (req: AuthRequest, res: Response) => {
   const workspaceId = routeParam(req.params.workspaceId);
   const peerUserId = routeParam(req.params.userId);
   const userId = req.user!.id;
+
+  if (!(await bothUsersInWorkspace(userId, peerUserId, workspaceId))) {
+    return res.status(403).json({ error: 'Hai người dùng không cùng workspace.' });
+  }
 
   await markChatRead(userId, workspaceId, 'dm', peerUserId);
   return res.json({ ok: true });

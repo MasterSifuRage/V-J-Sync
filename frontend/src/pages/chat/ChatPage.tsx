@@ -23,7 +23,6 @@ import {
   WorkspaceChannelsMap,
   dmToDisplay,
   messageToDisplay,
-  sortWorkspaces,
 } from './chatTypes';
 import ChatUnreadBadge from './ChatUnreadBadge';
 import ChatMessageFile, { type ChatFileItem } from './ChatMessageFile';
@@ -48,10 +47,10 @@ export default function ChatPage() {
     useWorkspaceStore();
 
   const [channelsByWs, setChannelsByWs] = useState<WorkspaceChannelsMap>({});
-  const [expandedWsIds, setExpandedWsIds] = useState<Set<string>>(new Set());
   const [chatMode, setChatMode] = useState<ChatMode>('channel');
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const [selectedDmUser, setSelectedDmUser] = useState<User | null>(null);
+  const [selectedDmWorkspaceId, setSelectedDmWorkspaceId] = useState<string | null>(null);
   const [channelDetail, setChannelDetail] = useState<ChannelDetail | null>(null);
   const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([]);
 
@@ -76,7 +75,6 @@ export default function ChatPage() {
   const [creatingChannel, setCreatingChannel] = useState(false);
 
   const [showDmPicker, setShowDmPicker] = useState(false);
-  const [dmPickerWsId, setDmPickerWsId] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<PendingChatFile | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
@@ -107,7 +105,20 @@ export default function ChatPage() {
     setMessages((prev) => (prev.some((m) => m.id === item.id) ? prev : [...prev, item]));
   }, []);
 
-  const sortedWorkspaces = useMemo(() => sortWorkspaces(workspaces), [workspaces]);
+  const currentWorkspaceChannels = currentWorkspace ? channelsByWs[currentWorkspace.id] || [] : [];
+  const chatWorkspaceMembers = useMemo(
+    () =>
+      [...workspaceMembers].sort((a, b) => {
+        if (a.userId === user?.id) return 1;
+        if (b.userId === user?.id) return -1;
+        return a.user.name.localeCompare(b.user.name, 'vi');
+      }),
+    [workspaceMembers, user?.id],
+  );
+  const dmMembers = useMemo(
+    () => chatWorkspaceMembers.filter((m) => m.userId !== user?.id),
+    [chatWorkspaceMembers, user?.id],
+  );
 
   const fetchUnread = useCallback(async (workspaceId: string) => {
     try {
@@ -190,10 +201,29 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (!currentWorkspace) return;
-    setExpandedWsIds((prev) => new Set(prev).add(currentWorkspace.id));
     loadChannels(currentWorkspace.id);
     fetchUnread(currentWorkspace.id);
   }, [currentWorkspace, loadChannels, fetchUnread]);
+
+  useEffect(() => {
+    if (!currentWorkspace) return;
+    if (selectedChannel && selectedChannel.workspaceId !== currentWorkspace.id) {
+      setSelectedChannel(null);
+      setChannelDetail(null);
+      setMessages([]);
+      setTranslations({});
+      setPendingAttachment(null);
+      navigate('/chat', { replace: true });
+    }
+    if (selectedDmUser && selectedDmWorkspaceId !== currentWorkspace.id) {
+      setSelectedDmUser(null);
+      setSelectedDmWorkspaceId(null);
+      setMessages([]);
+      setTranslations({});
+      setPendingAttachment(null);
+      navigate('/chat', { replace: true });
+    }
+  }, [currentWorkspace, selectedChannel, selectedDmUser, selectedDmWorkspaceId, navigate]);
 
   useEffect(() => {
     if (!currentWorkspace || !paramChannelId) return;
@@ -472,28 +502,12 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const toggleWorkspace = async (ws: Workspace) => {
-    const next = new Set(expandedWsIds);
-    if (next.has(ws.id)) {
-      next.delete(ws.id);
-    } else {
-      next.add(ws.id);
-      if (!channelsByWs[ws.id]) await loadChannels(ws.id);
-    }
-    setExpandedWsIds(next);
-  };
-
-  const selectWorkspace = async (ws: Workspace) => {
-    setCurrentWorkspace(ws);
-    setExpandedWsIds((prev) => new Set(prev).add(ws.id));
-    if (!channelsByWs[ws.id]) await loadChannels(ws.id);
-  };
-
   const handleSelectChannel = (ws: Workspace, channel: Channel) => {
     setCurrentWorkspace(ws);
     setChatMode('channel');
     setSelectedChannel(channel);
     setSelectedDmUser(null);
+    setSelectedDmWorkspaceId(null);
     setTranslations({});
     setPendingAttachment(null);
     clearChannelUnread(channel.id);
@@ -505,6 +519,7 @@ export default function ChatPage() {
     setCurrentWorkspace(ws);
     setChatMode('dm');
     setSelectedDmUser(member.user);
+    setSelectedDmWorkspaceId(ws.id);
     setSelectedChannel(null);
     setTranslations({});
     setPendingAttachment(null);
@@ -730,18 +745,9 @@ export default function ChatPage() {
     }
   };
 
-  const openDmPicker = (wsId: string, e: React.MouseEvent) => {
+  const openDmPicker = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setDmPickerWsId(wsId);
     setShowDmPicker(true);
-    const ws = workspaces.find((w) => w.id === wsId);
-    if (ws) {
-      setCurrentWorkspace(ws);
-      workspaceAPI
-        .getMembers(ws.id)
-        .then((res) => setWorkspaceMembers(res.data.members ?? res.data))
-        .catch(() => {});
-    }
   };
 
   /** DM: chỉ những người đã gửi tin trong cuộc trò chuyện hiện tại */
@@ -772,7 +778,7 @@ export default function ChatPage() {
   const channelDisplayMembers = useMemo((): User[] => {
     if (chatMode !== 'channel' || !selectedChannel) return [];
     if (isGeneralChannel(selectedChannel)) {
-      return workspaceMembers.map((m) => m.user);
+      return chatWorkspaceMembers.map((m) => m.user);
     }
     const byId = new Map<string, User>();
     for (const row of channelDetail?.members ?? []) {
@@ -786,7 +792,7 @@ export default function ChatPage() {
       if (b.id === user?.id) return -1;
       return a.name.localeCompare(b.name, 'vi');
     });
-  }, [chatMode, selectedChannel, workspaceMembers, channelDetail, messages, user?.id]);
+  }, [chatMode, selectedChannel, chatWorkspaceMembers, channelDetail, messages, user?.id]);
 
   const memberCount =
     chatMode === 'channel' ? channelDisplayMembers.length : dmChatParticipants.length;
@@ -910,125 +916,103 @@ export default function ChatPage() {
         <div className="channel-nav">
           <div className="channel-nav-top">
             <h2 className="channel-nav-title">{t('chat.workspace')}</h2>
-            <span className="channel-nav-count">{t('common.joinedCount', { count: sortedWorkspaces.length })}</span>
+            <span className="channel-nav-count">
+              {currentWorkspace
+                ? t('common.membersCount', { count: currentWorkspace.memberCount ?? chatWorkspaceMembers.length })
+                : t('topbar.selectWorkspace')}
+            </span>
           </div>
 
           <div className="workspace-list">
-            {sortedWorkspaces.map((ws) => {
-              const expanded = expandedWsIds.has(ws.id);
-              const channels = channelsByWs[ws.id] || [];
-              const isActiveWs = currentWorkspace?.id === ws.id;
-
-              return (
-                <div key={ws.id} className={`ws-group ${isActiveWs ? 'ws-group-active' : ''}`}>
-                  <button
-                    type="button"
-                    className="ws-group-header"
-                    onClick={() => {
-                      void selectWorkspace(ws);
-                      void toggleWorkspace(ws);
-                    }}
-                  >
-                    <i
-                      className={`fas fa-chevron-right ws-group-chevron ${expanded ? 'expanded' : ''}`}
-                    />
-                    <span className="ws-group-name" title={ws.name}>
-                      {ws.name}
-                    </span>
-                    <span className="ws-group-meta">
-                      {workspaceUnreadTotal(ws.id) > 0 ? (
-                        <span className="ws-unread-pill">{workspaceUnreadTotal(ws.id)}</span>
-                      ) : (
-                        ws.memberCount ?? 0
-                      )}
-                    </span>
-                  </button>
-
-                  {expanded && (
-                    <div className="ws-group-body">
-                      <div className="channel-section">
-                        <div className="channel-section-title">
-                          <span>{t('chat.channels')}</span>
-                          <button
-                            type="button"
-                            title={t('chat.createChannel')}
-                            onClick={(e) => openCreateChannel(ws.id, e)}
-                          >
-                            +
-                          </button>
-                        </div>
-                        {channels.length === 0 ? (
-                          <p className="channel-empty-hint">{t('chat.noChannels')}</p>
-                        ) : (
-                          channels.map((ch) => (
-                            <div
-                              key={ch.id}
-                              className={`channel-item ${
-                                chatMode === 'channel' &&
-                                selectedChannel?.id === ch.id &&
-                                isActiveWs
-                                  ? 'active'
-                                  : ''
-                              }${isActiveWs && (unreadChannels[ch.id] ?? 0) > 0 ? ' has-unread' : ''}`}
-                              onClick={() => handleSelectChannel(ws, ch)}
-                              role="button"
-                              tabIndex={0}
-                              onKeyDown={(e) =>
-                                e.key === 'Enter' && handleSelectChannel(ws, ch)
-                              }
-                            >
-                              <span className="channel-hash">#</span>
-                              <span className="channel-item-name">{ch.name}</span>
-                              {isActiveWs && (
-                                <ChatUnreadBadge count={unreadChannels[ch.id] ?? 0} />
-                              )}
-                            </div>
-                          ))
-                        )}
-                      </div>
-
-                      {isActiveWs && (
-                        <div className="channel-section">
-                          <div className="channel-section-title">
-                            <span>{t('chat.directMessages')}</span>
-                            <button
-                              type="button"
-                              title={t('chat.pickDm')}
-                              onClick={(e) => openDmPicker(ws.id, e)}
-                            >
-                              +
-                            </button>
-                          </div>
-                          {workspaceMembers
-                            .filter((m) => m.userId !== user?.id)
-                            .map((m) => (
-                              <div
-                                key={m.userId}
-                                className={`dm-item ${
-                                  chatMode === 'dm' && selectedDmUser?.id === m.userId
-                                    ? 'active'
-                                    : ''
-                                }${(unreadDms[m.userId] ?? 0) > 0 ? ' has-unread' : ''}`}
-                                onClick={() => handleSelectDm(ws, m)}
-                                role="button"
-                                tabIndex={0}
-                              >
-                                <span className="dm-status online" />
-                                <span className="dm-item-name">{m.user.name}</span>
-                                <ChatUnreadBadge count={unreadDms[m.userId] ?? 0} />
-                              </div>
-                            ))}
-                          {workspaceMembers.filter((m) => m.userId !== user?.id).length ===
-                            0 && (
-                            <p className="channel-empty-hint">{t('chat.noOtherMembersShort')}</p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
+            {currentWorkspace && (
+              <div className="ws-group ws-group-active">
+                <div className="ws-group-header ws-group-header-static">
+                  <i className="fas fa-layer-group ws-group-icon" aria-hidden />
+                  <span className="ws-group-name" title={currentWorkspace.name}>
+                    {currentWorkspace.name}
+                  </span>
+                  <span className="ws-group-meta">
+                    {workspaceUnreadTotal(currentWorkspace.id) > 0 ? (
+                      <span className="ws-unread-pill">{workspaceUnreadTotal(currentWorkspace.id)}</span>
+                    ) : (
+                      currentWorkspace.memberCount ?? chatWorkspaceMembers.length
+                    )}
+                  </span>
                 </div>
-              );
-            })}
+
+                <div className="ws-group-body">
+                  <div className="channel-section">
+                    <div className="channel-section-title">
+                      <span>{t('chat.channels')}</span>
+                      <button
+                        type="button"
+                        title={t('chat.createChannel')}
+                        onClick={(e) => openCreateChannel(currentWorkspace.id, e)}
+                      >
+                        +
+                      </button>
+                    </div>
+                    {currentWorkspaceChannels.length === 0 ? (
+                      <p className="channel-empty-hint">{t('chat.noChannels')}</p>
+                    ) : (
+                      currentWorkspaceChannels.map((ch) => (
+                        <div
+                          key={ch.id}
+                          className={`channel-item ${
+                            chatMode === 'channel' && selectedChannel?.id === ch.id
+                              ? 'active'
+                              : ''
+                          }${(unreadChannels[ch.id] ?? 0) > 0 ? ' has-unread' : ''}`}
+                          onClick={() => handleSelectChannel(currentWorkspace, ch)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) =>
+                            e.key === 'Enter' && handleSelectChannel(currentWorkspace, ch)
+                          }
+                        >
+                          <span className="channel-hash">#</span>
+                          <span className="channel-item-name">{ch.name}</span>
+                          <ChatUnreadBadge count={unreadChannels[ch.id] ?? 0} />
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="channel-section">
+                    <div className="channel-section-title">
+                      <span>{t('chat.directMessages')}</span>
+                      <button
+                        type="button"
+                        title={t('chat.pickDm')}
+                        onClick={openDmPicker}
+                      >
+                        +
+                      </button>
+                    </div>
+                    {dmMembers.map((m) => (
+                      <div
+                        key={m.userId}
+                        className={`dm-item ${
+                          chatMode === 'dm' && selectedDmUser?.id === m.userId
+                            ? 'active'
+                            : ''
+                        }${(unreadDms[m.userId] ?? 0) > 0 ? ' has-unread' : ''}`}
+                        onClick={() => handleSelectDm(currentWorkspace, m)}
+                        role="button"
+                        tabIndex={0}
+                      >
+                        <span className="dm-status online" />
+                        <span className="dm-item-name">{m.user.name}</span>
+                        <ChatUnreadBadge count={unreadDms[m.userId] ?? 0} />
+                      </div>
+                    ))}
+                    {dmMembers.length === 0 && (
+                      <p className="channel-empty-hint">{t('chat.noOtherMembersShort')}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1444,27 +1428,21 @@ export default function ChatPage() {
         </div>
       )}
 
-      {showDmPicker && dmPickerWsId && (
+      {showDmPicker && currentWorkspace && (
         <div className="chat-modal-overlay" onClick={() => setShowDmPicker(false)}>
           <div className="chat-modal" onClick={(e) => e.stopPropagation()}>
             <h3>{t('chat.pickDmTitle')}</h3>
             <ul className="dm-picker-list">
-              {workspaceMembers
-                .filter((m) => m.userId !== user?.id)
-                .map((m) => {
-                  const ws = workspaces.find((w) => w.id === dmPickerWsId);
-                  if (!ws) return null;
-                  return (
-                    <li key={m.userId}>
-                      <button type="button" onClick={() => handleSelectDm(ws, m)}>
-                        <UserAvatar name={m.user.name} avatarUrl={m.user.avatarUrl} size="sm" />
-                        <span>{m.user.name}</span>
-                      </button>
-                    </li>
-                  );
-                })}
+              {dmMembers.map((m) => (
+                <li key={m.userId}>
+                  <button type="button" onClick={() => handleSelectDm(currentWorkspace, m)}>
+                    <UserAvatar name={m.user.name} avatarUrl={m.user.avatarUrl} size="sm" />
+                    <span>{m.user.name}</span>
+                  </button>
+                </li>
+              ))}
             </ul>
-            {workspaceMembers.filter((m) => m.userId !== user?.id).length === 0 && (
+            {dmMembers.length === 0 && (
               <p className="channel-empty-hint">{t('chat.noOtherMembers')}</p>
             )}
             <div className="chat-modal-actions">
