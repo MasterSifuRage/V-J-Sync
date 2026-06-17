@@ -133,17 +133,6 @@ export default function AppTopbar() {
           )}
         </div>
       </div>
-      <div className="app-topbar-center">
-        <label className="app-topbar-search-wrap">
-          <i className="fas fa-search app-topbar-search-icon" aria-hidden />
-          <input
-            type="search"
-            className="app-topbar-search"
-            placeholder={t('topbar.search')}
-            aria-label={t('topbar.searchLabel')}
-          />
-        </label>
-      </div>
       <div className="app-topbar-right">
         <div className="app-topbar-user-menu" ref={menuRef}>
           <button
