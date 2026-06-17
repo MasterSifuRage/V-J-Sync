@@ -17,15 +17,85 @@
   position: relative;
 }
 
-/* Giống old/chat.html: .main-content { margin-left: 280px; flex: 1; display: flex } —
-   Sidebar app là fixed nên cần offset để channel-nav / chat không nằm dưới sidebar */
+.chat-page .sidebar {
+  width: var(--sidebar-collapsed, 56px);
+  transition: width 0.18s ease;
+}
+
+.chat-page .sidebar .logo-container {
+  justify-content: center;
+  padding: 0 8px 10px;
+  margin: 0 6px 6px;
+}
+
+.chat-page .sidebar .logo-container span,
+.chat-page .sidebar .nav-item span {
+  display: none;
+}
+
+.chat-page .sidebar .logo-container img {
+  width: 32px;
+  height: 32px;
+}
+
+.chat-page .sidebar .nav-menu {
+  padding: 4px;
+}
+
+.chat-page .sidebar .nav-item {
+  justify-content: center;
+  padding: 10px 8px;
+  margin: 2px 4px;
+}
+
+.chat-page .sidebar .nav-item i {
+  width: auto;
+  font-size: 16px;
+}
+
+.chat-page .sidebar:hover {
+  width: var(--sidebar-width, 240px);
+}
+
+.chat-page .sidebar:hover .logo-container {
+  justify-content: flex-start;
+  padding: 0 12px 12px;
+  margin: 0 8px 8px;
+}
+
+.chat-page .sidebar:hover .logo-container span,
+.chat-page .sidebar:hover .nav-item span {
+  display: inline;
+}
+
+.chat-page .sidebar:hover .logo-container img {
+  width: 36px;
+  height: 36px;
+}
+
+.chat-page .sidebar:hover .nav-menu {
+  padding: 6px 8px;
+}
+
+.chat-page .sidebar:hover .nav-item {
+  justify-content: flex-start;
+  padding: 8px 10px;
+  margin: 1px 4px;
+}
+
+.chat-page .sidebar:hover .nav-item i {
+  width: 18px;
+  font-size: 15px;
+}
+
+/* Sidebar app is fixed, so the chat body starts after the collapsed chat sidebar. */
 .chat-body {
   display: flex;
   flex: 1;
   min-width: 0;
   height: 100vh;
   overflow: hidden;
-  margin-left: var(--sidebar-width, 240px);
+  margin-left: var(--sidebar-collapsed, 56px);
   position: relative;
 }
 
@@ -655,6 +725,42 @@
   margin: 0 0 12px;
 }
 
+.right-section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.right-section-title-row h5 {
+  margin: 0;
+}
+
+.right-add-member-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #dbeafe;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #2563eb;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.right-add-member-btn:hover {
+  background: #dbeafe;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
 .right-sidebar-section p {
   font-size: 13px;
   color: #475569;
@@ -1004,6 +1110,15 @@
   color: #1e293b;
 }
 
+.chat-modal-error {
+  margin: -4px 0 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #b91c1c !important;
+  font-size: 13px !important;
+}
+
 .chat-modal label {
   display: block;
   font-size: 12px;
@@ -1071,6 +1186,16 @@
 
 .dm-picker-list li button:hover {
   background: #f1f5f9;
+}
+
+.dm-picker-list li button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.dm-picker-list li button .fa-spinner {
+  margin-left: auto;
+  color: #64748b;
 }
 
 .dm-picker-list .user-avatar {

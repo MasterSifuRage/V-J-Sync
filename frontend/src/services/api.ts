@@ -70,6 +70,8 @@ export const channelAPI = {
   create: (workspaceId: string, data: { name: string; description?: string; isPrivate?: boolean }) =>
     api.post(`/channels/workspace/${workspaceId}`, data),
   detail: (channelId: string) => api.get(`/channels/${channelId}`),
+  addMember: (channelId: string, userId: string) =>
+    api.post(`/channels/${channelId}/members`, { userId }),
 };
 
 // Message

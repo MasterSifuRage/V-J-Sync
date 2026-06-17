@@ -73,6 +73,9 @@ export default function ChatPage() {
   const [newChannelDesc, setNewChannelDesc] = useState('');
   const [channelModalWsId, setChannelModalWsId] = useState<string | null>(null);
   const [creatingChannel, setCreatingChannel] = useState(false);
+  const [showAddChannelMemberModal, setShowAddChannelMemberModal] = useState(false);
+  const [addingChannelMemberId, setAddingChannelMemberId] = useState<string | null>(null);
+  const [addChannelMemberError, setAddChannelMemberError] = useState('');
 
   const [showDmPicker, setShowDmPicker] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -745,6 +748,21 @@ export default function ChatPage() {
     }
   };
 
+  const handleAddChannelMember = async (member: WorkspaceMember) => {
+    if (!selectedChannel) return;
+    setAddingChannelMemberId(member.userId);
+    setAddChannelMemberError('');
+    try {
+      await channelAPI.addMember(selectedChannel.id, member.userId);
+      await refreshChannelDetail(selectedChannel.id);
+      if (currentWorkspace) await loadChannels(currentWorkspace.id);
+    } catch {
+      setAddChannelMemberError(t('chat.addChannelMemberFailed'));
+    } finally {
+      setAddingChannelMemberId(null);
+    }
+  };
+
   const openDmPicker = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowDmPicker(true);
@@ -793,6 +811,15 @@ export default function ChatPage() {
       return a.name.localeCompare(b.name, 'vi');
     });
   }, [chatMode, selectedChannel, chatWorkspaceMembers, channelDetail, messages, user?.id]);
+
+  const canAddChannelMembers =
+    chatMode === 'channel' && !!selectedChannel && !isGeneralChannel(selectedChannel);
+
+  const addableChannelMembers = useMemo(() => {
+    if (!canAddChannelMembers) return [];
+    const memberIds = new Set(channelDisplayMembers.map((m) => m.id));
+    return chatWorkspaceMembers.filter((m) => !memberIds.has(m.userId));
+  }, [canAddChannelMembers, channelDisplayMembers, chatWorkspaceMembers]);
 
   const memberCount =
     chatMode === 'channel' ? channelDisplayMembers.length : dmChatParticipants.length;
@@ -1331,9 +1358,23 @@ export default function ChatPage() {
             </p>
           </div>
           <div className="right-sidebar-section">
-            <h5>
-              {t('chat.membersSection', { count: memberCount })}
-            </h5>
+            <div className="right-section-title-row">
+              <h5>{t('chat.membersSection', { count: memberCount })}</h5>
+              {canAddChannelMembers && (
+                <button
+                  type="button"
+                  className="right-add-member-btn"
+                  title={t('chat.addChannelMember')}
+                  aria-label={t('chat.addChannelMember')}
+                  onClick={() => {
+                    setAddChannelMemberError('');
+                    setShowAddChannelMemberModal(true);
+                  }}
+                >
+                  <i className="fas fa-user-plus" />
+                </button>
+              )}
+            </div>
             <ul className="right-member-list">
               {chatMode === 'dm' &&
                 dmChatParticipants.map((m) => (
@@ -1424,6 +1465,38 @@ export default function ChatPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showAddChannelMemberModal && selectedChannel && (
+        <div className="chat-modal-overlay" onClick={() => setShowAddChannelMemberModal(false)}>
+          <div className="chat-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>{t('chat.addChannelMemberTitle')}</h3>
+            {addChannelMemberError && <p className="chat-modal-error">{addChannelMemberError}</p>}
+            <ul className="dm-picker-list">
+              {addableChannelMembers.map((m) => (
+                <li key={m.userId}>
+                  <button
+                    type="button"
+                    disabled={addingChannelMemberId === m.userId}
+                    onClick={() => handleAddChannelMember(m)}
+                  >
+                    <UserAvatar name={m.user.name} avatarUrl={m.user.avatarUrl} size="sm" />
+                    <span>{m.user.name}</span>
+                    {addingChannelMemberId === m.userId && <i className="fas fa-spinner fa-spin" />}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {addableChannelMembers.length === 0 && (
+              <p className="channel-empty-hint">{t('chat.noMembersToAdd')}</p>
+            )}
+            <div className="chat-modal-actions">
+              <button type="button" onClick={() => setShowAddChannelMemberModal(false)}>
+                {t('common.close')}
+              </button>
+            </div>
           </div>
         </div>
       )}
