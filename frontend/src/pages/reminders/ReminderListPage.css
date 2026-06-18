@@ -56,6 +56,61 @@
   margin-bottom: 10px;
 }
 
+.reminder-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.reminder-search-wrap {
+  position: relative;
+  flex: 1 1 280px;
+  min-width: 220px;
+}
+
+.reminder-search-wrap i {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.reminder-search-wrap input,
+.reminder-filters select {
+  height: 38px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #fff;
+  color: #1e293b;
+  font-size: 13px;
+  outline: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.reminder-search-wrap input {
+  width: 100%;
+  padding: 0 12px 0 34px;
+}
+
+.reminder-filters select {
+  min-width: 150px;
+  padding: 0 34px 0 12px;
+  cursor: pointer;
+}
+
+.reminder-search-wrap input:focus,
+.reminder-filters select:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.25);
+}
+
 .reminder-loading,
 .reminder-empty {
   text-align: center;

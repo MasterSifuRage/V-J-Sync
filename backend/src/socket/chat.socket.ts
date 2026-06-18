@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
-import { ensureChannelMemberOnChat } from '../utils/channelMembers';
+import { canUseChannel, ensureChannelMemberOnChat } from '../utils/channelMembers';
 
 const prisma = new PrismaClient();
 
@@ -25,15 +25,6 @@ async function isWorkspaceMember(userId: string, workspaceId: string) {
     select: { id: true },
   });
   return Boolean(member);
-}
-
-async function canUseChannel(userId: string, channelId: string) {
-  const channel = await prisma.channel.findUnique({
-    where: { id: channelId },
-    select: { workspaceId: true },
-  });
-  if (!channel) return false;
-  return isWorkspaceMember(userId, channel.workspaceId);
 }
 
 async function canUseDm(userId: string, peerUserId: string, workspaceId: string) {
@@ -66,9 +57,10 @@ export function setupSocket(io: Server) {
   io.on('connection', (socket: AuthSocket) => {
     console.log(`[Socket] ${socket.userName} connected`);
 
-    socket.on('join_channel', (payload: unknown) => {
+    socket.on('join_channel', async (payload: unknown) => {
       const channelId = parseChannelId(payload);
       if (!channelId) return;
+      if (!socket.userId || !(await canUseChannel(prisma, socket.userId, channelId))) return;
       socket.join(`channel:${channelId}`);
       console.log(`[Socket] ${socket.userName} joined channel:${channelId}`);
     });
@@ -85,7 +77,7 @@ export function setupSocket(io: Server) {
           socket.emit('error', { message: 'Nội dung tin nhắn không được trống.' });
           return;
         }
-        if (!socket.userId || !(await canUseChannel(socket.userId, data.channelId))) {
+        if (!socket.userId || !(await canUseChannel(prisma, socket.userId, data.channelId))) {
           socket.emit('error', { message: 'Bạn không thuộc workspace của kênh này.' });
           return;
         }

@@ -384,12 +384,8 @@ export default function TaskDetailPage() {
   const descNeedsTranslation =
     !!task?.description && !!translationPair(detectTextLang(task.description), translateTarget);
   const aiLoading = loading || (autoTranslateEnabled && translationLoading);
-  const showSummaryTranslation = autoTranslateEnabled
-    ? !!summaryTranslation
-    : summaryExpanded && !!summaryTranslation;
-  const showDescTranslation = autoTranslateEnabled
-    ? !!descTranslation
-    : descExpanded && !!descTranslation;
+  const showSummaryTranslation = summaryExpanded && !!summaryTranslation;
+  const showDescTranslation = descExpanded && !!descTranslation;
 
   const renderTranslationBlock = (text: string | null) => {
     if (!text?.trim()) return null;
@@ -448,16 +444,15 @@ export default function TaskDetailPage() {
                   <>
                     <DescriptionText text={displaySummary} />
                     {displaySummary.trim() ? <AiDisclaimerNote kind="summary" /> : null}
-                    {!autoTranslateEnabled &&
-                      renderTranslateButton(
-                        summaryExpanded,
-                        summaryTranslating,
-                        toggleSummaryTranslate,
-                        summaryNeedsTranslation,
-                      )}
+                    {renderTranslateButton(
+                      summaryExpanded,
+                      summaryTranslating,
+                      toggleSummaryTranslate,
+                      summaryNeedsTranslation,
+                    )}
                     {summaryNeedsTranslation && showSummaryTranslation
                       ? renderTranslationBlock(summaryTranslation)
-                      : summaryNeedsTranslation && autoTranslateEnabled && translationLoading ? (
+                      : summaryExpanded && summaryNeedsTranslation && autoTranslateEnabled && translationLoading ? (
                         <div className="task-ai-loading task-ai-loading--inline">
                           <i className="fas fa-spinner fa-spin" /> {t('tasks.aiProcessing')}
                         </div>
@@ -479,7 +474,7 @@ export default function TaskDetailPage() {
                   <div className="task-description-empty">{t('tasks.noDescription')}</div>
                 )}
                 {task.attachments?.length ? <TaskAttachmentList attachments={task.attachments} /> : null}
-                {task.description && !autoTranslateEnabled &&
+                {task.description &&
                   renderTranslateButton(
                     descExpanded,
                     descTranslating,
@@ -488,7 +483,7 @@ export default function TaskDetailPage() {
                   )}
                 {task.description && descNeedsTranslation && showDescTranslation
                   ? renderTranslationBlock(descTranslation)
-                  : task.description && descNeedsTranslation && autoTranslateEnabled && translationLoading ? (
+                  : descExpanded && task.description && descNeedsTranslation && autoTranslateEnabled && translationLoading ? (
                     <div className="task-ai-loading task-ai-loading--inline">
                       <i className="fas fa-spinner fa-spin" /> {t('tasks.aiProcessing')}
                     </div>

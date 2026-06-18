@@ -76,6 +76,8 @@ export default function ChatPage() {
   const [showAddChannelMemberModal, setShowAddChannelMemberModal] = useState(false);
   const [addingChannelMemberId, setAddingChannelMemberId] = useState<string | null>(null);
   const [addChannelMemberError, setAddChannelMemberError] = useState('');
+  const [removingChannelMemberId, setRemovingChannelMemberId] = useState<string | null>(null);
+  const [channelActionLoading, setChannelActionLoading] = useState(false);
 
   const [showDmPicker, setShowDmPicker] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -446,6 +448,41 @@ export default function ChatPage() {
       },
     );
 
+    socket.on('channel_member_removed', (payload: { channelId: string; userId: string }) => {
+      const workspaceId = currentWorkspaceIdRef.current;
+      if (workspaceId) void loadChannels(workspaceId);
+
+      if (payload.channelId !== selectedChannelIdRef.current) return;
+      if (payload.userId === userIdRef.current) {
+        setSelectedChannel(null);
+        setChannelDetail(null);
+        setMessages([]);
+        setTranslations({});
+        setPendingAttachment(null);
+        setSharedFiles([]);
+        setShowAddChannelMemberModal(false);
+        navigate('/chat', { replace: true });
+        return;
+      }
+
+      void refreshChannelDetailRef.current(payload.channelId);
+    });
+
+    socket.on('channel_deleted', (payload: { channelId: string }) => {
+      const workspaceId = currentWorkspaceIdRef.current;
+      if (workspaceId) void loadChannels(workspaceId);
+      if (payload.channelId !== selectedChannelIdRef.current) return;
+
+      setSelectedChannel(null);
+      setChannelDetail(null);
+      setMessages([]);
+      setTranslations({});
+      setPendingAttachment(null);
+      setSharedFiles([]);
+      setShowAddChannelMemberModal(false);
+      navigate('/chat', { replace: true });
+    });
+
     const rejoinRooms = () => {
       if (chatModeRef.current === 'channel' && selectedChannelIdRef.current) {
         socket.emit('join_channel', selectedChannelIdRef.current);
@@ -459,6 +496,8 @@ export default function ChatPage() {
 
     return () => {
       socket.off('message_state_updated');
+      socket.off('channel_member_removed');
+      socket.off('channel_deleted');
       socket.off('connect', rejoinRooms);
       socket.disconnect();
       socketRef.current = null;
@@ -763,6 +802,65 @@ export default function ChatPage() {
     }
   };
 
+  const resetSelectedChannel = () => {
+    setSelectedChannel(null);
+    setChannelDetail(null);
+    setMessages([]);
+    setTranslations({});
+    setPendingAttachment(null);
+    setSharedFiles([]);
+    setShowAddChannelMemberModal(false);
+    navigate('/chat', { replace: true });
+  };
+
+  const handleRemoveChannelMember = async (member: User) => {
+    if (!selectedChannel) return;
+    if (!window.confirm(t('chat.confirmRemoveChannelMember', { name: member.name }))) return;
+
+    setRemovingChannelMemberId(member.id);
+    try {
+      await channelAPI.removeMember(selectedChannel.id, member.id);
+      await refreshChannelDetail(selectedChannel.id);
+      if (currentWorkspace) await loadChannels(currentWorkspace.id);
+    } catch {
+      window.alert(t('chat.removeChannelMemberFailed'));
+    } finally {
+      setRemovingChannelMemberId(null);
+    }
+  };
+
+  const handleLeaveChannel = async () => {
+    if (!selectedChannel) return;
+    if (!window.confirm(t('chat.confirmLeaveChannel'))) return;
+
+    setChannelActionLoading(true);
+    try {
+      await channelAPI.leave(selectedChannel.id);
+      if (currentWorkspace) await loadChannels(currentWorkspace.id);
+      resetSelectedChannel();
+    } catch {
+      window.alert(t('chat.leaveChannelFailed'));
+    } finally {
+      setChannelActionLoading(false);
+    }
+  };
+
+  const handleDeleteChannel = async () => {
+    if (!selectedChannel) return;
+    if (!window.confirm(t('chat.confirmDeleteChannel', { name: selectedChannel.name }))) return;
+
+    setChannelActionLoading(true);
+    try {
+      await channelAPI.delete(selectedChannel.id);
+      if (currentWorkspace) await loadChannels(currentWorkspace.id);
+      resetSelectedChannel();
+    } catch {
+      window.alert(t('chat.deleteChannelFailed'));
+    } finally {
+      setChannelActionLoading(false);
+    }
+  };
+
   const openDmPicker = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowDmPicker(true);
@@ -792,7 +890,7 @@ export default function ChatPage() {
     });
   }, [chatMode, messages, selectedDmUser, user]);
 
-  /** Kênh general: toàn workspace; kênh khác: người tạo + đã chat (từ API + tin đang tải) */
+  /** Kênh general: toàn workspace; kênh khác: đúng danh sách ChannelMember. */
   const channelDisplayMembers = useMemo((): User[] => {
     if (chatMode !== 'channel' || !selectedChannel) return [];
     if (isGeneralChannel(selectedChannel)) {
@@ -802,18 +900,22 @@ export default function ChatPage() {
     for (const row of channelDetail?.members ?? []) {
       if (row.user?.id) byId.set(row.user.id, row.user);
     }
-    for (const msg of messages) {
-      if (msg.sender?.id) byId.set(msg.sender.id, msg.sender);
-    }
     return Array.from(byId.values()).sort((a, b) => {
       if (a.id === user?.id) return 1;
       if (b.id === user?.id) return -1;
       return a.name.localeCompare(b.name, 'vi');
     });
-  }, [chatMode, selectedChannel, chatWorkspaceMembers, channelDetail, messages, user?.id]);
+  }, [chatMode, selectedChannel, chatWorkspaceMembers, channelDetail, user?.id]);
 
-  const canAddChannelMembers =
+  const isNonGeneralChannel =
     chatMode === 'channel' && !!selectedChannel && !isGeneralChannel(selectedChannel);
+  const channelOwnerId = selectedChannel?.createdById ?? channelDetail?.createdById;
+  const canManageChannel = !!isNonGeneralChannel && !!user?.id && channelOwnerId === user.id;
+  const isCurrentChannelMember =
+    !!user?.id && channelDisplayMembers.some((m) => m.id === user.id);
+  const canAddChannelMembers = !!isNonGeneralChannel && isCurrentChannelMember;
+  const canLeaveChannel =
+    !!isNonGeneralChannel && !!user?.id && isCurrentChannelMember && !canManageChannel;
 
   const addableChannelMembers = useMemo(() => {
     if (!canAddChannelMembers) return [];
@@ -1356,6 +1458,28 @@ export default function ChatPage() {
                   ? t('chat.dmWith', { name: selectedDmUser.name })
                   : t('chat.selectConversationHint')}
             </p>
+            {canManageChannel && (
+              <button
+                type="button"
+                className="channel-danger-action"
+                disabled={channelActionLoading}
+                onClick={() => void handleDeleteChannel()}
+              >
+                <i className={channelActionLoading ? 'fas fa-spinner fa-spin' : 'fas fa-trash'} />
+                {t('chat.deleteChannel')}
+              </button>
+            )}
+            {canLeaveChannel && (
+              <button
+                type="button"
+                className="channel-leave-action"
+                disabled={channelActionLoading}
+                onClick={() => void handleLeaveChannel()}
+              >
+                <i className={channelActionLoading ? 'fas fa-spinner fa-spin' : 'fas fa-sign-out-alt'} />
+                {t('chat.leaveChannel')}
+              </button>
+            )}
           </div>
           <div className="right-sidebar-section">
             <div className="right-section-title-row">
@@ -1397,6 +1521,24 @@ export default function ChatPage() {
                       {m.name}
                       {m.id === user?.id ? ` ${t('common.you')}` : ''}
                     </span>
+                    {canManageChannel && m.id !== user?.id && m.id !== channelOwnerId && (
+                      <button
+                        type="button"
+                        className="right-remove-member-btn"
+                        disabled={removingChannelMemberId === m.id}
+                        title={t('chat.removeChannelMember')}
+                        aria-label={t('chat.removeChannelMember')}
+                        onClick={() => void handleRemoveChannelMember(m)}
+                      >
+                        <i
+                          className={
+                            removingChannelMemberId === m.id
+                              ? 'fas fa-spinner fa-spin'
+                              : 'fas fa-user-minus'
+                          }
+                        />
+                      </button>
+                    )}
                   </li>
                 ))}
               {chatMode === 'channel' && channelDisplayMembers.length === 0 && (

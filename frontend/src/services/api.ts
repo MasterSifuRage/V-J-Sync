@@ -72,6 +72,10 @@ export const channelAPI = {
   detail: (channelId: string) => api.get(`/channels/${channelId}`),
   addMember: (channelId: string, userId: string) =>
     api.post(`/channels/${channelId}/members`, { userId }),
+  removeMember: (channelId: string, userId: string) =>
+    api.delete(`/channels/${channelId}/members/${userId}`),
+  leave: (channelId: string) => api.delete(`/channels/${channelId}/members/me`),
+  delete: (channelId: string) => api.delete(`/channels/${channelId}`),
 };
 
 // Message

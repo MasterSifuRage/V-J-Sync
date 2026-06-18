@@ -36,6 +36,7 @@ export interface Channel {
   name: string;
   description?: string;
   isPrivate: boolean;
+  createdById?: string;
   _count?: { members: number; messages: number };
 }
 

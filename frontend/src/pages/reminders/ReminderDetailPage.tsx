@@ -7,8 +7,10 @@ import { uiDateLocale } from '../../lib/dateLocale';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { isEmployee } from '../../lib/workspaceRole';
 import { getCountdown } from '../../lib/reminderTime';
-import { useDescriptionTranslation } from '../../hooks/useDescriptionTranslation';
-import { TaskTranslationBlock } from '../tasks/taskDetailHelpers';
+import { useTranslateTarget } from '../../hooks/useTranslateTarget';
+import { detectTextLang, isValidTranslation, translationPair } from '../../lib/textLang';
+import { aiAPI } from '../../services/api';
+import { fetchTranslation, TaskTranslationBlock } from '../tasks/taskDetailHelpers';
 import '../tasks/TaskDetailPage.css';
 import './ReminderDetailPage.css';
 
@@ -21,10 +23,11 @@ export default function ReminderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [descExpanded, setDescExpanded] = useState(false);
+  const [descTranslation, setDescTranslation] = useState<string | null>(null);
+  const [descTranslating, setDescTranslating] = useState(false);
   const [, setTick] = useState(0);
-
-  const { translation, loading: translationLoading, translateTarget, needsTranslation } =
-    useDescriptionTranslation(reminder?.description);
+  const translateTarget = useTranslateTarget();
 
   useEffect(() => {
     const id = window.setInterval(() => setTick((n) => n + 1), 60_000);
@@ -36,7 +39,11 @@ export default function ReminderDetailPage() {
     setLoading(true);
     reminderAPI
       .detail(reminderId)
-      .then((res) => setReminder(res.data.reminder ?? res.data))
+      .then((res) => {
+        setReminder(res.data.reminder ?? res.data);
+        setDescExpanded(false);
+        setDescTranslation(null);
+      })
       .catch(() => setError(t('reminders.detailLoadError')))
       .finally(() => setLoading(false));
   }, [reminderId, t]);
@@ -74,6 +81,37 @@ export default function ReminderDetailPage() {
       hour: '2-digit',
       minute: '2-digit',
     });
+
+  const descriptionPair = reminder?.description?.trim()
+    ? translationPair(detectTextLang(reminder.description), translateTarget)
+    : null;
+
+  const toggleDescTranslate = async () => {
+    if (!reminder?.description?.trim()) return;
+    if (descExpanded) {
+      setDescExpanded(false);
+      return;
+    }
+    const pair = descriptionPair;
+    if (!pair) return;
+    if (descTranslation && isValidTranslation(descTranslation, translateTarget)) {
+      setDescExpanded(true);
+      return;
+    }
+
+    setDescTranslating(true);
+    const translated = await fetchTranslation(
+      reminder.description,
+      pair.from,
+      pair.to,
+      aiAPI.translate,
+    );
+    setDescTranslating(false);
+    if (translated && isValidTranslation(translated, translateTarget)) {
+      setDescTranslation(translated);
+      setDescExpanded(true);
+    }
+  };
 
   if (loading) {
     return (
@@ -145,14 +183,27 @@ export default function ReminderDetailPage() {
           <div className="detail-section">
             <h3>{t('common.description')}</h3>
             <p className="detail-description">{reminder.description}</p>
-            {needsTranslation && translation ? (
-              <TaskTranslationBlock variant={translateTarget}>
-                <p className="detail-description">{translation}</p>
-              </TaskTranslationBlock>
-            ) : needsTranslation && translationLoading ? (
-              <div className="reminder-translation-loading">
-                <i className="fas fa-spinner fa-spin" /> {t('tasks.aiProcessing')}
+            {descriptionPair && (
+              <div className="task-content-actions">
+                <button
+                  type="button"
+                  className="comment-translate-btn"
+                  disabled={descTranslating}
+                  onClick={() => void toggleDescTranslate()}
+                >
+                  <i className={`fas ${descTranslating ? 'fa-spinner fa-spin' : 'fa-language'}`} />
+                  {descTranslating
+                    ? t('common.loading')
+                    : descExpanded
+                      ? t('chat.hideTranslate')
+                      : t('chat.translate')}
+                </button>
               </div>
+            )}
+            {descExpanded && descTranslation ? (
+              <TaskTranslationBlock variant={translateTarget}>
+                <p className="detail-description">{descTranslation}</p>
+              </TaskTranslationBlock>
             ) : null}
           </div>
         )}

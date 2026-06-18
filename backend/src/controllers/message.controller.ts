@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { routeParam } from '../utils/routeParam';
 import { countUnreadForWorkspace, markChatRead } from '../utils/chatUnread';
-import { ensureChannelMemberOnChat } from '../utils/channelMembers';
+import { canUseChannel, ensureChannelMemberOnChat } from '../utils/channelMembers';
 import { getSocketIo } from '../socket/ioInstance';
 import { canModerateAllChatMessages, getWorkspaceMember } from '../utils/workspaceRoles';
 import { decodeUploadedFileName } from '../utils/fileUpload';
@@ -63,6 +63,10 @@ export const getMessages = async (req: AuthRequest, res: Response) => {
   const limit = parseInt(req.query.limit as string) || 50;
   const skip = (page - 1) * limit;
 
+  if (!(await canUseChannel(prisma, req.user!.id, channelId))) {
+    return res.status(403).json({ error: 'Bạn không thuộc nhóm chat này.' });
+  }
+
   const [messages, total] = await Promise.all([
     prisma.message.findMany({
       where: { channelId },
@@ -108,6 +112,10 @@ async function bothUsersInWorkspace(viewerId: string, peerUserId: string, worksp
 
 export const getChannelFiles = async (req: AuthRequest, res: Response) => {
   const channelId = routeParam(req.params.channelId);
+  if (!(await canUseChannel(prisma, req.user!.id, channelId))) {
+    return res.status(403).json({ error: 'Bạn không thuộc nhóm chat này.' });
+  }
+
   const files = await prisma.message.findMany({
     where: { channelId, fileUrl: { not: null }, isHidden: false },
     select: fileSelect,
@@ -196,6 +204,9 @@ export const createMessage = async (req: AuthRequest, res: Response) => {
   const channelId = routeParam(req.params.channelId);
   const { content, parentId, fileUrl, fileName, fileType } = req.body;
   if (!content && !fileUrl) return res.status(400).json({ error: 'Nội dung tin nhắn không được trống.' });
+  if (!(await canUseChannel(prisma, req.user!.id, channelId))) {
+    return res.status(403).json({ error: 'Bạn không thuộc nhóm chat này.' });
+  }
 
   const message = await prisma.message.create({
     data: { channelId, senderId: req.user!.id, content: content || '', parentId, fileUrl, fileName, fileType: fileType || 'text' },
@@ -267,6 +278,9 @@ export const markChannelRead = async (req: AuthRequest, res: Response) => {
     select: { workspaceId: true },
   });
   if (!channel) return res.status(404).json({ error: 'Kênh không tồn tại.' });
+  if (!(await canUseChannel(prisma, userId, channelId))) {
+    return res.status(403).json({ error: 'Bạn không thuộc nhóm chat này.' });
+  }
 
   await markChatRead(userId, channel.workspaceId, 'channel', channelId);
   return res.json({ ok: true });

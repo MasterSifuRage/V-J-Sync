@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '../../store/workspaceStore';
@@ -16,6 +16,17 @@ import {
 } from '../../lib/reminderTime';
 import './ReminderListPage.css';
 
+type ReminderStatusFilter = 'all' | 'pending' | 'completed';
+type ReminderTimeFilter = 'all' | 'today' | 'upcoming' | 'overdue';
+
+function isSameDate(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
 export default function ReminderListPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -23,7 +34,10 @@ export default function ReminderListPage() {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [, tick] = useState(0);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<ReminderStatusFilter>('all');
+  const [timeFilter, setTimeFilter] = useState<ReminderTimeFilter>('all');
+  const [timeTick, setTimeTick] = useState(0);
 
   const dateLocale = uiDateLocale(i18n.language);
   const employeeView = isEmployee(currentWorkspace?.roleId);
@@ -39,7 +53,7 @@ export default function ReminderListPage() {
   }, [currentWorkspace, t]);
 
   useEffect(() => {
-    const id = window.setInterval(() => tick((n) => n + 1), 60_000);
+    const id = window.setInterval(() => setTimeTick((n) => n + 1), 60_000);
     return () => window.clearInterval(id);
   }, []);
 
@@ -53,9 +67,36 @@ export default function ReminderListPage() {
     }
   };
 
-  const sorted = [...reminders].sort(
-    (a, b) => new Date(a.remindAt).getTime() - new Date(b.remindAt).getTime(),
-  );
+  const filteredReminders = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const now = new Date();
+    return reminders
+      .filter((r) => {
+        if (query) {
+          const haystack = [
+            r.title,
+            r.description ?? '',
+            r.creator?.name ?? '',
+            r.target?.name ?? '',
+            ...r.tags,
+          ]
+            .join(' ')
+            .toLowerCase();
+          if (!haystack.includes(query)) return false;
+        }
+
+        if (statusFilter === 'completed' && !r.isCompleted) return false;
+        if (statusFilter === 'pending' && r.isCompleted) return false;
+
+        const remindAt = new Date(r.remindAt);
+        if (timeFilter === 'today' && !isSameDate(remindAt, now)) return false;
+        if (timeFilter === 'overdue' && (r.isCompleted || remindAt.getTime() > now.getTime())) return false;
+        if (timeFilter === 'upcoming' && (r.isCompleted || remindAt.getTime() <= now.getTime())) return false;
+
+        return true;
+      })
+      .sort((a, b) => new Date(a.remindAt).getTime() - new Date(b.remindAt).getTime());
+  }, [reminders, search, statusFilter, timeFilter, timeTick]);
 
   return (
     <div className="reminder-list-page">
@@ -73,16 +114,48 @@ export default function ReminderListPage() {
 
       {error && <div className="reminder-error">{error}</div>}
 
+      <div className="reminder-filters" aria-label={t('reminders.filterLabel')}>
+        <div className="reminder-search-wrap">
+          <i className="fas fa-search" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('reminders.searchPlaceholder')}
+            aria-label={t('common.searchLabel')}
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as ReminderStatusFilter)}
+          aria-label={t('reminders.statusFilter')}
+        >
+          <option value="all">{t('reminders.filterAllStatus')}</option>
+          <option value="pending">{t('reminders.pending')}</option>
+          <option value="completed">{t('reminders.completed')}</option>
+        </select>
+        <select
+          value={timeFilter}
+          onChange={(e) => setTimeFilter(e.target.value as ReminderTimeFilter)}
+          aria-label={t('reminders.timeFilter')}
+        >
+          <option value="all">{t('reminders.filterAllTime')}</option>
+          <option value="today">{t('reminders.filterToday')}</option>
+          <option value="upcoming">{t('reminders.filterUpcoming')}</option>
+          <option value="overdue">{t('reminders.filterOverdue')}</option>
+        </select>
+      </div>
+
       {loading ? (
         <div className="reminder-loading">
           <i className="fas fa-spinner fa-spin" />
           <p>{t('common.loading')}</p>
         </div>
-      ) : sorted.length === 0 ? (
+      ) : filteredReminders.length === 0 ? (
         <div className="reminder-empty">
           <i className="fas fa-bell-slash" />
-          <p>{t('reminders.empty')}</p>
-          {!employeeView && (
+          <p>{reminders.length === 0 ? t('reminders.empty') : t('reminders.emptyFiltered')}</p>
+          {!employeeView && reminders.length === 0 && (
             <button type="button" className="btn-create-alt" onClick={() => navigate('/reminders/create')}>
               {t('reminders.createFirst')}
             </button>
@@ -90,7 +163,7 @@ export default function ReminderListPage() {
         </div>
       ) : (
         <div className="reminder-list">
-          {sorted.map((r) => {
+          {filteredReminders.map((r) => {
             const countdown = getCountdown(r.remindAt, r.isCompleted, t);
             return (
               <article
