@@ -17,6 +17,7 @@ import { Task, TaskComment } from '../../types';
 import UserAvatar from '../../components/common/UserAvatar';
 import {
   TaskTranslationBlock,
+  AiDisclaimerNote,
   taskShortId,
   fetchTranslation,
 } from './taskDetailHelpers';
@@ -443,6 +444,7 @@ export default function TaskDetailPage() {
                 ) : displaySummary ? (
                   <>
                     <DescriptionText text={displaySummary} />
+                    {displaySummary.trim() ? <AiDisclaimerNote kind="summary" /> : null}
                     {!autoTranslateEnabled &&
                       renderTranslateButton(
                         summaryExpanded,

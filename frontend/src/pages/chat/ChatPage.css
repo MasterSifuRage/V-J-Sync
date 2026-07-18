@@ -459,6 +459,10 @@
   padding: 12px 14px;
 }
 
+.message-body .ai-disclaimer-block {
+  margin-top: 8px;
+}
+
 .chat-translation-text {
   font-size: 14px;
   color: #334155;

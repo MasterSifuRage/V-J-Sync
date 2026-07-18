@@ -152,7 +152,9 @@
     "you": "（あなた）",
     "backToList": "一覧に戻る",
     "edit": "編集",
-    "assignedBy": "{{name}} が割当"
+    "assignedBy": "{{name}} が割当",
+    "aiDisclaimerTranslation": "この翻訳はAIが生成したものであり、正確でない場合があります。",
+    "aiDisclaimerSummary": "この要約はAIが生成したものであり、正確でない場合があります。"
   },
   "profile": {
     "title": "プロフィール",
@@ -384,6 +386,8 @@
     "colLanguage": "表示言語",
     "colRole": "役割",
     "colPermission": "権限",
+    "colActions": "操作",
+    "ownerLabel": "オーナー",
     "removeMemberTitle": "メンバーを削除",
     "emptyMembers": "メンバーがいません。",
     "securityTitle": "データセキュリティ",
@@ -402,9 +406,9 @@
     "memberName": "名前",
     "memberNamePlaceholder": "メンバー名",
     "adding": "追加中...",
-    "permissionAdmin": "全権",
-    "permissionWrite": "書込",
-    "permissionRead": "読取",
+    "permissionAdmin": "フル権限",
+    "permissionWrite": "タスク管理",
+    "permissionRead": "閲覧のみ",
     "langFromAccount": "個人アカウント設定に準拠",
     "langGlobalHint": "アカウントの表示言語 — すべてのワークスペースで共通",
     "langNewUserOnly": "新規アカウント作成時のみ（未登録メールの場合）"

@@ -315,22 +315,29 @@
 }
 
 .btn-remove-member {
-  width: 26px;
-  height: 26px;
+  padding: 4px 12px;
   border-radius: var(--radius-sm);
   background: #fef2f2;
   color: var(--danger);
   border: 1px solid #fecaca;
   cursor: pointer;
-  font-size: 11px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
   transition: background 0.12s;
 }
 
 .btn-remove-member:hover {
   background: #fee2e2;
+}
+
+.member-owner-label {
+  display: inline-block;
+  font-size: 12px;
+  font-style: italic;
+  color: #94a3b8;
+  user-select: none;
+  cursor: default;
 }
 
 .empty-row {

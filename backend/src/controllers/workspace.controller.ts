@@ -140,6 +140,15 @@ export const updateWorkspaceMember = async (req: AuthRequest, res: Response) => 
 export const removeWorkspaceMember = async (req: AuthRequest, res: Response) => {
   const workspaceId = routeParam(req.params.workspaceId);
   const userId = routeParam(req.params.userId);
+
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { createdById: true },
+  });
+  if (workspace?.createdById === userId) {
+    return res.status(403).json({ error: 'Không thể xóa chủ sở hữu workspace.' });
+  }
+
   await prisma.workspaceMember.delete({ where: { workspaceId_userId: { workspaceId, userId } } });
   return res.json({ message: 'Đã xóa thành viên.' });
 };
